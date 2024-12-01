@@ -46,7 +46,7 @@ main = do
 
 showSolution :: String -> Int -> IO ()
 showSolution part sol =
-  putStrLn $ part <> ": " <> show sol
+  putStrLn (part <> ": " <> show sol)
 
 part1 :: Vector Int -> Vector Int -> Int
 part1 vl vr = V.sum (V.zipWith f vl vr)
