@@ -56,7 +56,7 @@ part1 vl vr = V.sum (V.zipWith f vl vr)
 part2 :: Vector Int -> Vector Int -> Int
 part2 vl vr = V.foldl' f 0 vl
   where
-    f acc x = acc + x * V.length (V.elemIndices x vr)
+    f acc x = acc + x * V.length (V.filter (== x) vr)
     -- count y = V.foldl' g 0 vr
     --   where g acc z
     --           | y == z    = acc + 1

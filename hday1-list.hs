@@ -4,7 +4,7 @@ module Main where
 
 import Data.Maybe (fromMaybe)
 import Text.Read (readMaybe)
-import Data.List (sort, foldl', elemIndices)
+import Data.List (sort, foldl')
 
 readPair :: String -> (Int, Int)
 readPair s = (a, b)
@@ -45,4 +45,4 @@ part1 vl vr = sum (zipWith f vl vr)
 part2 :: [Int] -> [Int] -> Int
 part2 vl vr = foldl' f 0 vl
   where
-    f acc x = acc + x * length (elemIndices x vr)
+    f acc x = acc + x * length (filter (==x) vr)
