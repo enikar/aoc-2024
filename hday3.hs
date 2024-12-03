@@ -5,7 +5,7 @@
 module Main where
 
 import Data.Maybe (fromMaybe)
-import Data.Text.Read (decimal)
+import Data.Text.Read (decimal, signed)
 import Data.List (foldl')
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -48,7 +48,7 @@ readInt = fromMaybe errRead . textReadMaybe
     errRead = error "Error: readInt: not an Int"
 
 textReadMaybe :: (Integral a, Read a) => T.Text -> Maybe a
-textReadMaybe text = case decimal text of
+textReadMaybe text = case signed decimal text of
                        Left _ -> Nothing
                        Right (x, _) -> Just x
 
