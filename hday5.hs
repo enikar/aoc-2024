@@ -8,7 +8,9 @@ import Data.Char (isDigit)
 import Control.Monad (void)
 import Data.IntMap.Strict qualified as M
 import Data.IntMap.Strict (IntMap)
-import Data.List (sortBy, partition)
+import Data.List (sortBy, partition, foldl')
+import Data.Set qualified as S
+import Data.Set (Set)
 
 import Text.ParserCombinators.ReadP
   (ReadP
@@ -20,8 +22,7 @@ import Text.ParserCombinators.ReadP
   ,eof
   )
 
-data Datas = D { rules :: IntMap [Int], updates :: [[Int]]}
-             deriving (Show)
+type Datas = (IntMap (Set Int), [[Int]])
 
 showSolution :: String -> Int -> IO ()
 showSolution part answer =
@@ -29,32 +30,30 @@ showSolution part answer =
 
 main :: IO ()
 main = do
-  datas <- parseDatas <$> readFile "day5.txt"
-  let rls = rules datas
-      ups = updates datas
-      (ordered, nonOrdered) = partition (sorted rls) ups
+  (rules, updates) <- parseDatas <$> readFile "day5.txt"
+  let (ordered, nonOrdered) = partition (sorted rules) updates
   showSolution "Part1" (part1 ordered)
-  showSolution "Part2" (part2 rls nonOrdered)
+  showSolution "Part2" (part2 rules nonOrdered)
 
 part1 :: [[Int]] -> Int
-part1 ups = sum (map middle  ups)
+part1 updates = sum (map middle updates)
 
-sorted :: IntMap [Int] -> [Int] -> Bool
+sorted :: IntMap (Set Int) -> [Int] -> Bool
 sorted _ [] = True
-sorted rls (x:xs) = all p xs && sorted rls xs
+sorted rules (x:xs) = all p xs && sorted rules xs
   where
-    p y = let o = simpleCmp rls x y
+    p y = let o = simpleCmp rules x y
           in o == LT || o == EQ
 
-part2 :: IntMap [Int] -> [[Int]] -> Int
-part2 rls ups = sum (map (middle . sortByRules) ups)
+part2 :: IntMap (Set Int) -> [[Int]] -> Int
+part2 rules updates = sum (map (middle . sortByRules) updates)
   where
-    sortByRules = sortBy (simpleCmp rls)
+    sortByRules = sortBy (simpleCmp rules)
 
-simpleCmp :: IntMap [Int] -> Int -> Int -> Ordering
-simpleCmp rls x y =
-  let xy = (y `elem`) <$> M.lookup x rls
-      yx = (x `elem`) <$> M.lookup y rls
+simpleCmp :: IntMap (Set Int) -> Int -> Int -> Ordering
+simpleCmp rules x y =
+  let xy = (y `S.member`) <$> M.lookup x rules
+      yx = (x `S.member`) <$> M.lookup y rules
   in
     case xy of
       Just True -> LT
@@ -73,17 +72,17 @@ number :: ReadP Int
 number = read <$> munch1 isDigit
 
 parseDatas :: String -> Datas
-parseDatas s = (fst . head) (parse readDatas s)
+parseDatas str = (fst . head) (parse readDatas str)
 
 readDatas :: ReadP Datas
 readDatas = do
-  rs <- buildMap <$> sepBy1 readRule (char '\n')
+  rules <- buildMap <$> sepBy1 readRule (char '\n')
   void (char '\n')
   void (char '\n')
-  us <- sepBy1 readUpdate (char '\n')
+  updates <- sepBy1 readUpdate (char '\n')
   optional (char '\n')
   eof
-  pure (D rs us)
+  pure (rules, updates)
 
 
 readRule :: ReadP (Int, Int)
@@ -93,13 +92,13 @@ readRule = do
   n2 <- number
   pure (n1, n2)
 
-buildMap :: [(Int, Int)] -> IntMap [Int]
-buildMap xs = foldr f M.empty xs
+buildMap :: [(Int, Int)] -> IntMap (Set Int)
+buildMap xs = foldl' f M.empty xs
   where
-    f (n1, n2) acc =
+    f acc (n1, n2) =
       case M.lookup n1 acc of
-           Nothing -> M.insert n1 [n2] acc
-           Just ls -> M.insert n1 (n2:ls) acc
+           Nothing -> M.insert n1 (S.singleton n2) acc
+           Just set -> M.insert n1 (S.insert n2 set) acc
 
 readUpdate :: ReadP [Int]
 readUpdate = sepBy1 number (char ',')
