@@ -75,7 +75,7 @@ parseDatas str = (fst . head) (parse readDatas str)
 
 readDatas :: ReadP Datas
 readDatas = do
-  rules <- buildMap <$> sepBy1 readRule (char '\n')
+  rules <- buildRules <$> sepBy1 readRule (char '\n')
   void (char '\n')
   void (char '\n')
   updates <- sepBy1 readUpdate (char '\n')
@@ -91,8 +91,8 @@ readRule = do
   n2 <- number
   pure (n1, n2)
 
-buildMap :: [(Int, Int)] -> IntMap IntSet
-buildMap xs = foldl' f M.empty xs
+buildRules :: [(Int, Int)] -> IntMap IntSet
+buildRules xs = foldl' f M.empty xs
   where
     f acc (n1, n2) =
       case M.lookup n1 acc of
