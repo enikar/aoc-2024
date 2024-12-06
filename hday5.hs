@@ -51,15 +51,14 @@ part2 rules updates = sum (map (middle . sortByRules) updates)
     sortByRules = sortBy (simpleCmp rules)
 
 simpleCmp :: IntMap IntSet -> Int -> Int -> Ordering
-simpleCmp rules x y =
-  let xy = (y `S.member`) <$> M.lookup x rules
-      yx = (x `S.member`) <$> M.lookup y rules
-  in
-    case xy of
-      Just True -> LT
-      _         -> case yx of
-                     Just True -> GT
-                     _         -> EQ
+simpleCmp rules x y = choice xy yx
+  where
+    xy = (y `S.member`) <$> M.lookup x rules
+    yx = (x `S.member`) <$> M.lookup y rules
+
+    choice (Just True) _          = LT
+    choice _          (Just True) = GT
+    choice _           _          = EQ
 
 middle :: [Int] -> Int
 middle ls = ls !! n
