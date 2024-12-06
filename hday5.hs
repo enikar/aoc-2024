@@ -9,8 +9,8 @@ import Control.Monad (void)
 import Data.IntMap.Strict qualified as M
 import Data.IntMap.Strict (IntMap)
 import Data.List (sortBy, partition, foldl')
-import Data.Set qualified as S
-import Data.Set (Set)
+import Data.IntSet qualified as S
+import Data.IntSet (IntSet)
 
 import Text.ParserCombinators.ReadP
   (ReadP
@@ -22,7 +22,7 @@ import Text.ParserCombinators.ReadP
   ,eof
   )
 
-type Datas = (IntMap (Set Int), [[Int]])
+type Datas = (IntMap IntSet, [[Int]])
 
 showSolution :: String -> Int -> IO ()
 showSolution part answer =
@@ -38,19 +38,19 @@ main = do
 part1 :: [[Int]] -> Int
 part1 updates = sum (map middle updates)
 
-sorted :: IntMap (Set Int) -> [Int] -> Bool
+sorted :: IntMap IntSet -> [Int] -> Bool
 sorted _ [] = True
 sorted rules (x:xs) = all p xs && sorted rules xs
   where
     p y = let o = simpleCmp rules x y
           in o == LT || o == EQ
 
-part2 :: IntMap (Set Int) -> [[Int]] -> Int
+part2 :: IntMap IntSet -> [[Int]] -> Int
 part2 rules updates = sum (map (middle . sortByRules) updates)
   where
     sortByRules = sortBy (simpleCmp rules)
 
-simpleCmp :: IntMap (Set Int) -> Int -> Int -> Ordering
+simpleCmp :: IntMap IntSet -> Int -> Int -> Ordering
 simpleCmp rules x y =
   let xy = (y `S.member`) <$> M.lookup x rules
       yx = (x `S.member`) <$> M.lookup y rules
@@ -92,7 +92,7 @@ readRule = do
   n2 <- number
   pure (n1, n2)
 
-buildMap :: [(Int, Int)] -> IntMap (Set Int)
+buildMap :: [(Int, Int)] -> IntMap IntSet
 buildMap xs = foldl' f M.empty xs
   where
     f acc (n1, n2) =
