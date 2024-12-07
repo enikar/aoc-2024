@@ -22,7 +22,7 @@ import Text.ParserCombinators.ReadP
 data Equation = Equation {value :: Int, numbers :: [Int]}
            deriving (Show)
 
-data Op = Add | Mul deriving (Show, Eq)
+data Op = Add | Mul | Concat deriving (Show, Eq)
 
 showSolution :: Show a => String -> a -> IO ()
 showSolution part answer =
@@ -31,21 +31,21 @@ showSolution part answer =
 main :: IO ()
 main = do
   eqs <- parseDatas <$> readFile "day7.txt"
-  showSolution "Part1" (part1 eqs)
-  --showSolution "Part2" (part2 eqs)
+  showSolution "Part1" (partx 2 eqs)
+  showSolution "Part2" (partx 3 eqs)
 
-part1 :: [Equation] -> Int
-part1 eqs = sum (map checkEquation eqs)
+partx :: Int -> [Equation] -> Int
+partx p eqs = sum (map (checkEquation p) eqs)
 
 -- returns 0 if there is no way to check the equation,
 -- else returns the searched value
-checkEquation :: Equation -> Int
-checkEquation eq = if null checks then 0 else val
+checkEquation :: Int -> Equation -> Int
+checkEquation p eq = if null checks then 0 else val
   where
     val = value eq
     n = length (numbers eq) - 1
-    ops = tails (cycle (deBruijnSequence n))
-    opss = take (2^n) (map (take n) ops)
+    ops = tails (cycle (deBruijnSequence n p))
+    opss = take (p^n) (map (take n) ops)
     checks = filter (checkEquation' eq) opss
 
 checkEquation' :: Equation -> [Op] -> Bool
@@ -58,11 +58,10 @@ checkEquation' eq ops = val == foldl' f n (zip nums ops)
                   [_] -> errorCheck
                   (n':nums') -> (n', nums')
 
-    f acc (x, Add) = acc + x
-    f acc (x, Mul) = acc * x
+    f acc (x, Add)    = acc + x
+    f acc (x, Mul)    = acc * x
+    f acc (x, Concat) = read (show acc <> show x)
 
--- TODO
--- part2
 
 parse :: ReadP a -> ReadS a
 parse = readP_to_S
@@ -99,12 +98,12 @@ nextLyndonWord n k = foldr checkLyndonElement [] . take n . cycle
        checkLyndonElement x xs = x:xs
 
 
-deBruijnSequence :: Int -> [Op]
-deBruijnSequence n  =
+deBruijnSequence :: Int -> Int -> [Op]
+deBruijnSequence n k =
     toOps .
     concat .
     filter ((==0) . mod n . length) .
     takeWhile (not . null) .
-    iterate (nextLyndonWord n 2) $ [0]
+    iterate (nextLyndonWord n k) $ [0]
    where
-     toOps = map ([Add, Mul] !!)
+     toOps = map ([Add, Mul, Concat] !!)
