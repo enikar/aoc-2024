@@ -49,7 +49,7 @@ checkEquation p eq = if null checks then 0 else val
     checks = filter (checkEquation' eq) opss
 
 checkEquation' :: Equation -> [Op] -> Bool
-checkEquation' eq ops = val == foldl' f n (zip nums ops)
+checkEquation' eq ops = val == fst (foldl' f (n, False) (zip nums ops))
   where
     val = value eq
     errorCheck = error "Error: checkEquation: the list of numbers is too short"
@@ -58,10 +58,16 @@ checkEquation' eq ops = val == foldl' f n (zip nums ops)
                   [_] -> errorCheck
                   (n':nums') -> (n', nums')
 
-    f acc (x, Add)    = acc + x
-    f acc (x, Mul)    = acc * x
-    f acc (x, Concat) = read (show acc <> show x)
+    f (acc, prune) (x, op)
+      | prune              = (0, True)
+      | otherwise          = (acc', prune')
+          where
+            acc' = applyOp op acc x
+            prune' = acc' > val
 
+    applyOp Add a b = a+b
+    applyOp Mul a b = a*b
+    applyOp Concat a b = read (show a <> show b)
 
 parse :: ReadP a -> ReadS a
 parse = readP_to_S
