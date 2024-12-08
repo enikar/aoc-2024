@@ -35,40 +35,41 @@ main = do
   showSolution "Part2" (partx 3 eqs)
 
 partx :: Int -> [Equation] -> Int
-partx p eqs = sum (map (checkEquation p) eqs)
+--partx p eqs = sum (map (checkEquation p) eqs)
+partx p eqs = foldr f 0 eqs
+  where
+    f eq acc = acc + checkEquation p eq
 
 -- returns 0 if there is no way to check the equation,
 -- else returns the searched value
 checkEquation :: Int -> Equation -> Int
-checkEquation p eq = if null checks then 0 else val
+checkEquation p eq = if checks then val else 0
   where
     val = value eq
-    n = length (numbers eq) - 1
+    lg = length (numbers eq) - 1
     ops = [Add, Mul, Concat]
-    opss = replicateM n (take p ops)
-    checks = filter (checkEquation' eq) opss
+    opss = replicateM lg (take p ops)
 
-checkEquation' :: Equation -> [Op] -> Bool
-checkEquation' eq ops = val == fst (foldl' f (n, False) (zip nums ops))
-  where
-    val = value eq
     errorCheck = error "Error: checkEquation: the list of numbers is too short"
     (n, nums) = case numbers eq of
                   [] -> errorCheck
                   [_] -> errorCheck
                   (n':nums') -> (n', nums')
 
-    f (acc, prune) (x, op)
-      | prune              = (0, True)
-      | otherwise          = (acc', prune')
-          where
-            acc' = applyOp op acc x
-            prune' = acc' > val
+    checks = any helper opss
+
+    helper = (val ==) . fst . foldl' go (n, False) . zip nums
+
+    go (v, prune) (x, op)
+      | prune     = (0, True)
+      | otherwise = (v', prune')
+        where
+          v' = applyOp op v x
+          prune' = v' > val
 
     applyOp Add a b = a+b
     applyOp Mul a b = a*b
     applyOp Concat a b = read (show a <> show b)
-
 
 parse :: ReadP a -> ReadS a
 parse = readP_to_S

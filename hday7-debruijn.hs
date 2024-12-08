@@ -35,35 +35,38 @@ main = do
   showSolution "Part2" (partx 3 eqs)
 
 partx :: Int -> [Equation] -> Int
-partx p eqs = sum (map (checkEquation p) eqs)
+--partx p eqs = sum (map (checkEquation p) eqs)
+partx p eqs = foldr f 0 eqs
+  where
+    f eq acc = acc + checkEquation p eq
 
 -- returns 0 if there is no way to check the equation,
 -- else returns the searched value
+-- TODO: further simplified
 checkEquation :: Int -> Equation -> Int
-checkEquation p eq = if null checks then 0 else val
+checkEquation p eq = if checks then val else 0
   where
     val = value eq
-    n = length (numbers eq) - 1
-    ops = tails (cycle (deBruijnSequence n p))
-    opss = take (p^n) (map (take n) ops)
-    checks = filter (checkEquation' eq) opss
+    lg = length (numbers eq) - 1
+    opss = tails (cycle (deBruijnSequence lg p))
+    opss' = take (p^lg) (map (take lg) opss)
 
-checkEquation' :: Equation -> [Op] -> Bool
-checkEquation' eq ops = val == fst (foldl' f (n, False) (zip nums ops))
-  where
-    val = value eq
     errorCheck = error "Error: checkEquation: the list of numbers is too short"
     (n, nums) = case numbers eq of
                   [] -> errorCheck
                   [_] -> errorCheck
                   (n':nums') -> (n', nums')
 
-    f (acc, prune) (x, op)
-      | prune              = (0, True)
-      | otherwise          = (acc', prune')
-          where
-            acc' = applyOp op acc x
-            prune' = acc' > val
+    checks = any helper opss'
+
+    helper = (val ==) . fst . foldl' go (n, False) . zip nums
+
+    go (acc, prune) (x, op)
+      | prune     = (0, True)
+      | otherwise = (acc', prune')
+        where
+          acc' = applyOp op acc x
+          prune' = acc' > val
 
     applyOp Add a b = a+b
     applyOp Mul a b = a*b
