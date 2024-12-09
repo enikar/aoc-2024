@@ -72,7 +72,9 @@ part2 ts = foldl' f 0 [0..limit]
     limit = length ts - 3
     lg  = T.length (head ts) - 3
 
-    f acc n = acc + xMatchCount lg ls
+    matchCount = xMatchCount lg
+
+    f acc n = acc + matchCount ls
       where ls = drop n ts
 
 xMatchCount :: Int -> [Text] -> Int
@@ -84,14 +86,14 @@ xMatchCount limit ts = foldl' f 0 [0..limit]
         where
           ls = map (T.drop n) ts
 
--- we compile regexes, it's between 5 times faster than
--- the very first version
+-- we compile regexes, it's 5 times faster than
+-- my very first version
 patterns :: Map Text Text
 patterns = M.fromList
-  [("M.M", "^S.S")
-  ,("M.S", "^M.S")
-  ,("S.M", "^S.M")
-  ,("S.S", "^M.M")
+  [("MM", "^S.S")
+  ,("MS", "^M.S")
+  ,("SM", "^S.M")
+  ,("SS", "^M.M")
   ]
 
 compOpt :: CompOption
@@ -105,18 +107,18 @@ compOpt = CompOption {caseSensitive = True
 execOpt :: ExecOption
 execOpt = ExecOption { captureGroups = False }
 
-regexes :: Map Text Regex
-regexes = M.map (makeRegexOpts compOpt execOpt) patterns
+lastLine :: Map Text Regex
+lastLine = M.map (makeRegexOpts compOpt execOpt) patterns
 
-regex :: Regex
-regex = makeRegexOpts compOpt execOpt ("^[MS].[MS]" :: Text)
+firstLine :: Regex
+firstLine = makeRegexOpts compOpt execOpt ("^[MS].[MS]" :: Text)
 
 xMasCheck :: [Text] -> Bool
 xMasCheck ts = matchA && matchMS && matchSM
   where
     matchA = T.index (ts !! 1) 1 == 'A'
-    match1 = match regex (head ts) :: Text
+    match1 = match firstLine (head ts) :: Text
     matchMS = not (T.null match1)
-    match1' = T.pack [T.head match1, '.', T.last match1]
-    reg = regexes ! match1'
+    match1' = T.pack [T.head match1, T.last match1]
+    reg = lastLine ! match1'
     matchSM = match reg (ts !! 2)
