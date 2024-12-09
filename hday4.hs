@@ -86,7 +86,7 @@ xMatchCount limit ts = foldl' f 0 [0..limit]
         where
           ls = map (T.drop n) ts
 
--- we compile regexes, it's 5 times faster than
+-- we compile regexes, it's 13 times faster than
 -- my very first version
 patterns :: Map Text Text
 patterns = M.fromList
@@ -98,7 +98,7 @@ patterns = M.fromList
 
 compOpt :: CompOption
 compOpt = CompOption {caseSensitive = True
-                     ,multiline = True
+                     ,multiline = False
                      ,rightAssoc = True
                      ,newSyntax = False
                      ,lastStarGreedy = False
