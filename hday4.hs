@@ -79,6 +79,7 @@ xMatchCount limit ts = foldl' f 0 [0..limit]
         where
           ls = map (T.drop n) ts
 
+-- TODO: try to compile patterns just once
 patterns :: Map Text Text
 patterns = M.fromList
   [("M.M", "^S.S")
@@ -90,7 +91,7 @@ patterns = M.fromList
 xMasCheck :: [Text] -> Bool
 xMasCheck ts = matchA && matchMS && matchSM
   where
-    matchA = (ts !! 1) =~ "^.A."
+    matchA = T.index (ts !! 1) 1 == 'A'
     match1 = head ts =~ "^[MS].[MS]" :: Text
     matchMS = not (T.null match1)
     match1' = T.pack [T.head match1, '.', T.last match1]
