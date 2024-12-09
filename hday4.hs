@@ -2,7 +2,6 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 {- HLINT ignore "Eta reduce" -}
 
@@ -14,7 +13,13 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Data.Map.Strict qualified as M
 import Data.Map.Strict ((!), Map)
-import Text.Regex.TDFA ((=~))
+import Text.Regex.TDFA (CompOption(..)
+                       ,ExecOption(..)
+                       ,Regex
+                       ,makeRegexOpts
+                       ,match
+                       )
+
 default (T.Text)
 
 readDatas :: String -> IO [Text]
@@ -79,7 +84,8 @@ xMatchCount limit ts = foldl' f 0 [0..limit]
         where
           ls = map (T.drop n) ts
 
--- TODO: try to compile patterns just once
+-- we compile regexes, it's between 5 times faster than
+-- the very first version
 patterns :: Map Text Text
 patterns = M.fromList
   [("M.M", "^S.S")
@@ -88,12 +94,29 @@ patterns = M.fromList
   ,("S.S", "^M.M")
   ]
 
+compOpt :: CompOption
+compOpt = CompOption {caseSensitive = True
+                     ,multiline = True
+                     ,rightAssoc = True
+                     ,newSyntax = False
+                     ,lastStarGreedy = False
+                     }
+
+execOpt :: ExecOption
+execOpt = ExecOption { captureGroups = False }
+
+regexes :: Map Text Regex
+regexes = M.map (makeRegexOpts compOpt execOpt) patterns
+
+regex :: Regex
+regex = makeRegexOpts compOpt execOpt ("^[MS].[MS]" :: Text)
+
 xMasCheck :: [Text] -> Bool
 xMasCheck ts = matchA && matchMS && matchSM
   where
     matchA = T.index (ts !! 1) 1 == 'A'
-    match1 = head ts =~ "^[MS].[MS]" :: Text
+    match1 = match regex (head ts) :: Text
     matchMS = not (T.null match1)
     match1' = T.pack [T.head match1, '.', T.last match1]
-    pat = patterns ! match1'
-    matchSM =  (ts !! 2) =~ pat
+    reg = regexes ! match1'
+    matchSM = match reg (ts !! 2)
