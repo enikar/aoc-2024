@@ -93,8 +93,6 @@ xMasCheck ts = matchA && matchMS && matchSM
     matchA = (ts !! 1) =~ "^.A."
     match1 = head ts =~ "^[MS].[MS]" :: Text
     matchMS = not (T.null match1)
-    match1' = T.cons (T.head match1)
-                      (T.snoc "." (T.last match1))
-
+    match1' = T.pack [T.head match1, '.', T.last match1]
     pat = patterns ! match1'
     matchSM =  (ts !! 2) =~ pat
