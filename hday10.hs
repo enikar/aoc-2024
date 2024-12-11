@@ -48,21 +48,20 @@ main = do
 part1 :: Grid -> [(Int, Int)] -> Int
 part1 grid = foldl' f 0
   where
-    f acc th = acc + S.size (score1 grid S.empty th)
+    f acc th = acc + S.size (score grid S.empty th)
 
-score1 :: Grid -> Positions -> (Int, Int) -> Positions
-score1 grid visited pos = foldl' f visited (nextPositions grid pos)
+score :: Grid -> Positions -> (Int, Int) -> Positions
+score grid visited pos = foldl' f visited (nextPositions grid pos)
   where
     f vis p
       | (grid ! p) == 9 = S.insert p vis
-      | otherwise       = score1 grid vis p
+      | otherwise       = score grid vis p
 
 
 part2 :: Grid -> [(Int, Int)] -> Int
 part2 grid = foldl' f 0
   where
-    f acc th = acc + M.foldl' g 0 (countTrails grid M.empty th)
-    g acc v = acc + v
+    f acc th = acc + M.foldl' (+) 0 (countTrails grid M.empty th)
 
 countTrails :: Grid -> Trails -> (Int, Int) -> Trails
 countTrails grid visited pos = foldl' f visited (nextPositions grid pos)
@@ -93,6 +92,7 @@ trailHeads grid = M.foldrWithKey' f [] grid
   where
     f pos v acc = if v == 0 then pos:acc else acc
 
+-- parsing stuff
 parse :: ReadP a -> ReadS a
 parse = readP_to_S
 
