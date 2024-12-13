@@ -18,7 +18,7 @@ readInt s = fromMaybe errRead  (readMaybe s)
     errRead = error ("Error: readInt: not an Int: " <> s)
 
 initialMap :: [Int] -> IntMap Int
-initialMap = foldl' f M.empty
+initialMap =  foldl' f M.empty
   where
     f acc x = M.alter (inc 1) x acc
 
