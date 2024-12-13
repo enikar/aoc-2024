@@ -17,29 +17,27 @@ readInt s = fromMaybe errRead  (readMaybe s)
   where
     errRead = error ("Error: readInt: not an Int: " <> s)
 
+initialMap :: [Int] -> IntMap Int
+initialMap =  foldl' f M.empty
+  where
+    f acc x = M.alter (inc 1) x acc
+
 printSolution :: Show a => String -> a -> IO ()
 printSolution part x = putStrLn (part <> ": " <> show x)
 
 main :: IO ()
 main = do
-  stones <- map readInt . words <$> readFile "day11.txt"
+  datas <- map readInt . words <$> readFile "day11.txt"
+  let stones = initialMap datas
   printSolution "Part1" (countStones (replicateBlink 25 stones))
   printSolution "Part2" (countStones (replicateBlink 75 stones))
 
 countStones :: IntMap Int -> Int
 countStones = M.foldl' (+) 0
 
-inc :: Int -> Maybe Int -> Maybe Int
-inc n Nothing = Just n
-inc n (Just m) = Just (m+n)
-
-replicateBlink :: Int -> [Int] -> IntMap Int
-replicateBlink blinks initial = snd (until satisfy improve (0, stones))
+replicateBlink :: Int -> IntMap Int -> IntMap Int
+replicateBlink blinks stones = snd (until satisfy improve (0, stones))
   where
-    stones = foldl' f M.empty initial
-      where
-        f acc x = M.alter (inc 1) x acc
-
     satisfy (n, _) = n == blinks
     improve (n, stones') = (n+1, blink stones')
 
@@ -51,6 +49,10 @@ update stones key n = foldl' g stones next
   where
     next = applyRules key
     g acc y = M.alter (inc n) y acc
+
+inc :: Int -> Maybe Int -> Maybe Int
+inc n Nothing = Just n
+inc n (Just m) = Just (m+n)
 
 applyRules :: Int -> [Int]
 applyRules n
