@@ -22,8 +22,14 @@ initialMap =  foldl' f M.empty
   where
     f acc x = M.alter (inc 1) x acc
 
-printSolution :: Show a => String -> a -> IO ()
-printSolution part x = putStrLn (part <> ": " <> show x)
+printSolution :: String -> (Int, Int) -> IO ()
+printSolution part (a,b) =
+  putStrLn (part
+             <> ": list length: "
+             <> show b
+             <> " with: "
+             <> show a
+             <> " differents Int")
 
 main :: IO ()
 main = do
@@ -32,8 +38,8 @@ main = do
   printSolution "Part1" (countStones (replicateBlink 25 stones))
   printSolution "Part2" (countStones (replicateBlink 75 stones))
 
-countStones :: IntMap Int -> Int
-countStones = M.foldl' (+) 0
+countStones :: IntMap Int -> (Int, Int)
+countStones stones = (M.size stones, M.foldl' (+) 0 stones)
 
 replicateBlink :: Int -> IntMap Int -> IntMap Int
 replicateBlink blinks stones = snd (until satisfy improve (0, stones))
