@@ -6,7 +6,11 @@
 module Main (main) where
 
 import Data.Map.Strict qualified as M
-import Data.Map.Strict (Map, (!))
+import Data.Map.Strict
+       (Map
+      -- ,(!)
+       )
+import Data.Maybe (fromMaybe)
 import Data.List (foldl')
 
 -- module for parsing
@@ -14,6 +18,7 @@ import Data.Char (isDigit)
 import Control.Monad (void)
 import Text.ParserCombinators.ReadP
   (ReadP
+  ,(<++)
   ,readP_to_S
   ,char
   ,string
@@ -37,12 +42,13 @@ xhalf = columns `quot` 2
 yhalf = rows `quot` 2
 
 initialGrid :: Grid
-initialGrid = M.fromList grid0
-  where
-    grid0 = [((x, y), [])
-            | x <- [0..columns-1]
-            , y <- [0..rows-1]
-            ]
+initialGrid = M.empty
+-- initialGrid = M.fromList grid0
+--   where
+--     grid0 = [((x, y), [])
+--             | x <- [0..columns-1]
+--             , y <- [0..rows-1]
+--             ]
 
 quadrantLT, quadrantLD, quadrantRT, quadrantRD :: [Position]
 quadrantLT = [(x, y)
@@ -113,10 +119,17 @@ times n f x
   | n <= 0    = x
   | otherwise = times (n-1) f $! f x
 
+-- times :: Int -> (a -> a) -> a -> a
+-- times n f x = snd (until satisfy improve (n, x))
+--   where
+--     satisfy (n', _) = n' <= 0
+--     improve (n', x') = (n'-1, f x')
+
 countRobots :: Grid -> [Position] -> Int
 countRobots grid coords = foldl' f 0 coords
   where
-    f acc (x, y) = acc + length (grid ! (x, y))
+    f acc (x, y) = acc + length robots
+      where robots = fromMaybe [] (M.lookup (x, y) grid)
 
 updatePosition :: Robot -> Maybe [Robot] -> Maybe [Robot]
 updatePosition robot Nothing = Just [robot]
@@ -128,8 +141,7 @@ parse = readP_to_S
 
 number :: ReadP Int
 number = do
-  optional (char '+')
-  signed <- option '+' (char '-')
+  signed <- option '+' (char '-' <++ char '+')
   n <- read <$> munch1 isDigit
   let n' | signed == '+' = n
          | otherwise     = -n
