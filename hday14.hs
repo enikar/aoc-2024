@@ -1,16 +1,16 @@
 -- AoC 2024 day 14, part1
 
-{-# LANGUAGE ImportQualifiedPost #-}
-
 {- HLINT ignore "Eta reduce" -}
 module Main (main) where
+import Prelude hiding (lookup)
 
-import Data.Map.Strict qualified as M
 import Data.Map.Strict
-       (Map
-      -- ,(!)
-       )
-import Data.Maybe (fromMaybe)
+  (Map
+  ,alter
+  ,findWithDefault
+  ,foldlWithKey'
+  ,empty
+  )
 import Data.List (foldl')
 
 -- module for parsing
@@ -42,13 +42,7 @@ xhalf = columns `quot` 2
 yhalf = rows `quot` 2
 
 initialGrid :: Grid
-initialGrid = M.empty
--- initialGrid = M.fromList grid0
---   where
---     grid0 = [((x, y), [])
---             | x <- [0..columns-1]
---             , y <- [0..rows-1]
---             ]
+initialGrid = empty
 
 quadrantLT, quadrantLD, quadrantRT, quadrantRD :: [Position]
 quadrantLT = [(x, y)
@@ -97,14 +91,24 @@ part1 grid = product
 -- part2 :: Grid -> Int
 -- part2 = undefined
 
+countRobots :: Grid -> [Position] -> Int
+countRobots grid coords = foldl' f 0 coords
+  where
+    f acc (x, y) = acc + length robots
+      where robots = findWithDefault [] (x, y) grid
+
 oneSecond :: Grid -> Grid
-oneSecond = M.foldlWithKey' f initialGrid
+oneSecond = foldlWithKey' f initialGrid
   where
     f grid (px, py) robots = foldl' g grid robots
       where
-        g acc r@(vx, vy) = M.alter (updatePosition r) p acc
+        g acc r@(vx, vy) = alter (updatePosition r) p acc
           where
             p = (move columns px vx, move rows py vy)
+
+updatePosition :: Robot -> Maybe [Robot] -> Maybe [Robot]
+updatePosition robot Nothing = Just [robot]
+updatePosition robot (Just robots) = Just (robot:robots)
 
 move :: Int -> Int -> Int -> Int
 move modulo pos vel
@@ -119,21 +123,6 @@ times n f x
   | n <= 0    = x
   | otherwise = times (n-1) f $! f x
 
--- times :: Int -> (a -> a) -> a -> a
--- times n f x = snd (until satisfy improve (n, x))
---   where
---     satisfy (n', _) = n' <= 0
---     improve (n', x') = (n'-1, f x')
-
-countRobots :: Grid -> [Position] -> Int
-countRobots grid coords = foldl' f 0 coords
-  where
-    f acc (x, y) = acc + length robots
-      where robots = fromMaybe [] (M.lookup (x, y) grid)
-
-updatePosition :: Robot -> Maybe [Robot] -> Maybe [Robot]
-updatePosition robot Nothing = Just [robot]
-updatePosition robot (Just robots) = Just (robot:robots)
 
 -- parsing stuff
 parse :: ReadP a -> ReadS a
@@ -183,4 +172,4 @@ readRobot = do
 createGrid :: [(Position, Robot)] -> Grid
 createGrid = foldl' f initialGrid
   where
-    f acc (p, r) = M.alter (updatePosition r) p acc
+    f acc (p, r) = alter (updatePosition r) p acc
