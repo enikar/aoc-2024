@@ -2,7 +2,6 @@
 
 {- HLINT ignore "Eta reduce" -}
 module Main (main) where
-import Prelude hiding (lookup)
 
 import Data.Map.Strict
   (Map
@@ -44,12 +43,12 @@ yhalf = rows `quot` 2
 initialGrid :: Grid
 initialGrid = empty
 
-quadrantLT, quadrantLD, quadrantRT, quadrantRD :: [Position]
+quadrantLT, quadrantLB, quadrantRT, quadrantRB :: [Position]
 quadrantLT = [(x, y)
               |x <- [0 .. xhalf-1]
               , y <- [0 .. yhalf-1]
               ]
-quadrantLD = [(x,y)
+quadrantLB = [(x,y)
               |x <- [0 .. xhalf-1]
               ,y <- [yhalf+1 .. rows-1]
               ]
@@ -57,7 +56,7 @@ quadrantRT = [(x,y)
               |x <- [xhalf+1 .. columns-1]
               ,y <- [0 .. yhalf-1]
               ]
-quadrantRD = [(x, y)
+quadrantRB = [(x, y)
               |x <- [xhalf+1 .. columns-1]
               ,y <- [yhalf+1 .. rows-1]
               ]
@@ -79,9 +78,9 @@ part1 :: Grid -> Int
 part1 grid = product
              (map (countRobots grid')
                    [quadrantLT
-                   ,quadrantLD
+                   ,quadrantLB
                    ,quadrantRT
-                   ,quadrantRD
+                   ,quadrantRB
                    ])
 
   where
