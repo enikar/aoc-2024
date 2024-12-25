@@ -1,4 +1,6 @@
--- AoC 2024, day 6, part1
+-- AoC 2024, day 6
+-- Naive solution. It is quite slow.
+
 {-# LANGUAGE ImportQualifiedPost #-}
 
 {- HLINT ignore "Eta reduce" -}
@@ -12,13 +14,22 @@ import Data.Array.Unboxed
   ,bounds
   ,range
   ,(!)
+  ,(//)
   )
 
 import Data.Set (Set)
 import Data.Set qualified as Set
-
 import Data.Foldable (for_)
-import Data.List (find)
+import Data.List
+  (find
+  ,foldl'
+  )
+import Data.Maybe
+  (mapMaybe
+  ,fromMaybe
+  )
+
+import Control.Monad (void)
 
 type Position = (Int, Int)
 data Guardian = Up Position
@@ -39,28 +50,16 @@ directions = "^v><"
 main :: IO ()
 main = do
   grid <- getDatas "day6.txt"
-  let path0 = initialPath grid
-  printSolution "Part1" (part1 path0)
-  --printSolution "Part2" (part2 path0 grid)
+  let visited = initialPath grid
+  printSolution "Part1" (part1 visited)
+  printSolution "Part2" (part2 visited grid)
 
 
 part1 :: Visited -> Int
 part1 visited = Set.size (visitedToPositions visited)
 
 visitedToPositions :: Visited -> Set Position
-visitedToPositions visited = Set.foldl' f Set.empty visited
-  where
-    f acc g = case position g of
-      Just p -> Set.insert p acc
-      Nothing -> acc
-
-initialPath :: Grid -> Visited
-initialPath grid0 = go grid0 Set.empty
-  where
-    go (_, Exit) visited = visited
-    go grid visited      =  go grid' visited'
-      where
-        (grid', visited') = next (grid, visited)
+visitedToPositions = Set.fromList . mapMaybe position . Set.toList
 
 position :: Guardian -> Maybe Position
 position (Up p)     = Just p
@@ -69,13 +68,45 @@ position (DRight p) = Just p
 position (DLeft p)  = Just p
 position _          = Nothing
 
-next :: (Grid, Visited) -> (Grid, Visited)
-next (grid, visited) = (grid', visited')
+initialPath :: Grid -> Visited
+initialPath grid0 = go grid0 Set.empty
+  where
+    go (_, Exit) visited = visited
+    go grid visited      = uncurry go (next grid visited)
+
+part2 :: Visited -> Grid -> Int
+part2 visited grid = foldl' f 0 positions
+  where
+    positions = Set.toList (visitedToPositions visited)
+    (arr0, g0) = grid
+    p0 = fromMaybe errorPart2 (position g0)
+    errorPart2 = error "Error: part2: can't find the start"
+
+    f acc p
+      | p == p0    = acc
+      | g == Exit = acc
+      | g == Loop = acc+1
+      | otherwise  = acc -- not reach
+      where
+        arr1 = arr0 // [(p, '#')]
+        g = untilEnd (arr1, g0)
+
+untilEnd :: Grid -> Guardian
+untilEnd grid0 = go grid0 Set.empty
+  where
+    go (_, Exit) _ = Exit
+    go grid visited
+      | g `Set.member` visited = Loop
+      | otherwise              = go grid' visited'
+      where
+        (grid'@(_, g), visited') = next grid visited
+
+next :: Grid -> Visited -> (Grid, Visited)
+next grid visited = (grid', visited')
   where
     (arr, _) = grid
     grid' = (arr, g')
     visited' = Set.union visited visited1
-
     (visited1, g') = move grid
 
 findObstacle :: [(Int, Char)] -> Maybe (Int, Char)
@@ -88,7 +119,6 @@ move (arr, g) = case g of
   DRight p -> moveRight arr p
   DLeft p -> moveLeft arr p
   _       -> noMove arr (-1, -1)
-
 
 noMove, moveUp, moveDown, moveRight, moveLeft :: Move
 noMove _ _ = error "Error: noMove is called!"
@@ -154,7 +184,7 @@ parseDatas s = (arr, g)
     arr = buildGrid s
     g = case findGuardian arr of
           Just g' -> g'
-          Nothing -> error "Error: parseDatas can't find the guardian."
+          Nothing -> error "Error: parseDatas can't find the guardian"
 
 findGuardian :: UArray Position Char -> Maybe Guardian
 findGuardian arr = uncurry guardian =<<
@@ -187,7 +217,7 @@ showGridVisited grid visited = foldr f [] (range (yinf, ysup))
       DRight p -> ('>', p)
       DLeft p  -> ('<', p)
       Exit     -> ('Q', (-1, -1))
-      Loop     -> ('O', (-1, -1))
+      Loop    -> ('O', (-1, -1))
 
     f y strs = foldr h [] (range (xinf, xsup)) : strs
       where
@@ -199,11 +229,33 @@ showGridVisited grid visited = foldr f [] (range (yinf, ysup))
               | c0 `elem` directions    = '.'
               | otherwise               = c0
 
-showGrid :: Grid -> [String]
-showGrid grid = showGridVisited grid Set.empty
-
 printGrid :: Grid -> IO ()
 printGrid grid = printGridVisited grid Set.empty
 
 printGridVisited :: Grid -> Set Guardian -> IO ()
 printGridVisited grid visited = for_ (showGridVisited grid visited) putStrLn
+
+summary :: Int -> Int -> IO ()
+summary n steps = do
+  putStrLn ("Number of loops: "
+            <> show n
+            <> "\nNumber of steps: "
+            <> show steps
+            <> "\nHit a key")
+  void getChar
+
+demo :: String -> IO ()
+demo filename = do
+  grid0 <- getDatas filename
+  putStrLn "Initial Grid:"
+  printGrid grid0
+  summary 0 0
+  let go _ (_, Exit) _ = pure ()
+      go n grid visited = do
+        let (grid', visited') = next grid visited
+        putStrLn "New grid:"
+        printGridVisited grid' visited'
+        summary n (Set.size visited')
+        go (n+1) grid' visited'
+  go 0 grid0 Set.empty
+  putStrLn "This is the end."
