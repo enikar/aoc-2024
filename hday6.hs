@@ -36,7 +36,10 @@ data Direction = Up
 type Guardian = (Position, Direction)
 type Grid = (UArray Position Char, Guardian)
 type Visited = Set Position
-type Move = UArray Position Char -> Position -> (Visited, Maybe Position)
+type Move = UArray Position Char -> Position -> (Visited, (Position, Direction))
+
+nowhere :: (Position, Direction)
+nowhere = ((-1, -1), Exit)
 
 directions :: [(Direction, Char)]
 directions = [(Up, '^')
@@ -65,18 +68,14 @@ part1 :: Grid -> Int
 part1 grid = Set.size visited
   where
     visited = fst (until satisfy next (Set.empty, grid))
-      where
-       satisfy (_, (_, (_, m))) = m == Exit
+    satisfy (_, (_, (_, m))) = m == Exit
 
 next :: (Visited, Grid) -> (Visited, Grid)
 next (visited0, grid) = (visited, grid')
   where
     (arr, (p0, dir)) = grid
-    grid' = (arr, (p', dir'))
+    grid' = (arr, p)
     visited = Set.union visited0 visited1
-    p' = fromMaybe (-1,-1) p
-    dir' |p' == (-1, -1) = Exit
-         |otherwise      = turnRight dir
 
     (visited1, p) = move arr p0
     move = fromMaybe errorNext (lookup dir moves)
@@ -86,22 +85,22 @@ findObstacle :: [(Int, Char)] -> Maybe (Int, Char)
 findObstacle = find (('#' ==) . snd)
 
 noMove, moveUp, moveDown, moveRight, moveLeft :: Move
-noMove _ _ = (Set.empty, Nothing)
+noMove _ _ = (Set.empty, nowhere)
 
 moveUp arr (x0, y0) =
   case findObstacle column of
-     Nothing     -> (visited 0, Nothing)
+     Nothing     -> (visited 0, nowhere)
      Just (y, _) -> let y' = y+1
-                    in (visited y', Just (x0, y'))
+                    in (visited y', ((x0, y'), DRight))
   where
     column   = reverse [(y, c) | ((x, y), c) <- assocs arr, x == x0, y < y0 ]
     visited n = Set.fromList [(x0, y) |y <- [n..y0]]
 
 moveDown arr (x0, y0) =
   case findObstacle column of
-    Nothing     -> (visited ysup, Nothing)
+    Nothing     -> (visited ysup, nowhere)
     Just (y, _) -> let y' = y - 1
-                   in (visited y', Just (x0, y-1))
+                   in (visited y', ((x0, y-1), DLeft))
   where
     column = [(y, c) | ((x, y), c) <- assocs arr, x == x0, y > y0]
     visited n = Set.fromList [(x0, y) |y <- [y0..n]]
@@ -109,9 +108,9 @@ moveDown arr (x0, y0) =
 
 moveRight arr (x0, y0) =
   case findObstacle row of
-    Nothing     -> (visited xsup, Nothing)
+    Nothing     -> (visited xsup, nowhere)
     Just (x, _) -> let x' = x - 1
-                   in (visited x', Just (x',y0))
+                   in (visited x', ((x',y0), Down))
   where
     row = [(x, c) | ((x,y), c) <- assocs arr, y == y0, x > x0]
     visited n = Set.fromList [(x, y0) | x <- [x0..n]]
@@ -119,19 +118,12 @@ moveRight arr (x0, y0) =
 
 moveLeft arr (x0, y0) =
   case findObstacle row of
-    Nothing     -> (visited 0, Nothing)
+    Nothing     -> (visited 0, nowhere)
     Just (x, _) -> let x' = x+1
-                   in (visited x', Just (x', y0))
+                   in (visited x', ((x', y0), Up))
   where
     row = reverse [(x, c) | ((x,y),c) <- assocs arr, y == y0, x < x0]
     visited n = Set.fromList [(x, y0) | x <- [n..x0]]
-
-turnRight :: Direction -> Direction
-turnRight Up = DRight
-turnRight Down = DLeft
-turnRight DRight = Down
-turnRight DLeft = Up
-turnRight Exit = Exit
 
 printSolution :: Show a => String -> a -> IO ()
 printSolution part x = putStrLn (part <> ": " <> show x)
@@ -139,6 +131,9 @@ printSolution part x = putStrLn (part <> ": " <> show x)
 getDatas :: String -> IO Grid
 getDatas filename = parseDatas <$> readFile' filename
 
+-- Using two foldr to build the Array and to find the
+-- guardian in a single path is slower than first build
+-- the Array, then find the guardian.
 parseDatas :: String -> Grid
 parseDatas s = (arr, guardian)
   where
@@ -159,7 +154,7 @@ buildGrid ss = array ((0, 0),(width, height)) cs
     width = case ss of
               [] -> 0
               (s:_) -> length s - 1
-    height = length ss -1
+    height = length ss - 1
     cs = [((x,y), c)
          |(y, s) <- zip [0..] ss
          ,(x, c) <- zip [0..] s
