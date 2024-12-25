@@ -18,112 +18,118 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 
 import Data.Foldable (for_)
-import Data.List
-  (foldl'
-  ,find
-  )
-import Data.Maybe (fromMaybe)
-import Data.Tuple (swap)
+import Data.List (find)
 
 type Position = (Int, Int)
-data Direction = Up
-               | Down
-               | DRight
-               | DLeft
+data Guardian = Up Position
+               | Down Position
+               | DRight Position
+               | DLeft Position
                | Exit
-               deriving (Show, Eq)
+               | Loop
+               deriving (Show, Eq, Ord)
 
-type Guardian = (Position, Direction)
 type Grid = (UArray Position Char, Guardian)
-type Visited = Set Position
-type Move = UArray Position Char -> Position -> (Visited, (Position, Direction))
+type Visited = Set Guardian
+type Move = UArray Position Char -> Position -> (Visited, Guardian)
 
-nowhere :: (Position, Direction)
-nowhere = ((-1, -1), Exit)
-
-directions :: [(Direction, Char)]
-directions = [(Up, '^')
-             ,(Down, 'v')
-             ,(DRight, '>')
-             ,(DLeft, '<')
-             ,(Exit, 'O')
-             ]
-
-moves :: [(Direction, Move)]
-moves = [(Up, moveUp)
-        ,(Down, moveDown)
-        ,(DRight, moveRight)
-        ,(DLeft, moveLeft)
-        ,(Exit, noMove)
-        ]
+directions :: [Char]
+directions = "^v><"
 
 main :: IO ()
 main = do
   grid <- getDatas "day6.txt"
-  printSolution "Part1" (part1 grid)
-  --printSolution "Part2" (part2 grid)
+  let path0 = initialPath grid
+  printSolution "Part1" (part1 path0)
+  --printSolution "Part2" (part2 path0 grid)
 
 
-part1 :: Grid -> Int
-part1 grid = Set.size visited
+part1 :: Visited -> Int
+part1 visited = Set.size (visitedToPositions visited)
+
+visitedToPositions :: Visited -> Set Position
+visitedToPositions visited = Set.foldl' f Set.empty visited
   where
-    visited = fst (until satisfy next (Set.empty, grid))
-    satisfy (_, (_, (_, m))) = m == Exit
+    f acc g = case position g of
+      Just p -> Set.insert p acc
+      Nothing -> acc
 
-next :: (Visited, Grid) -> (Visited, Grid)
-next (visited0, grid) = (visited, grid')
+initialPath :: Grid -> Visited
+initialPath grid0 = go grid0 Set.empty
   where
-    (arr, (p0, dir)) = grid
-    grid' = (arr, p)
-    visited = Set.union visited0 visited1
+    go (_, Exit) visited = visited
+    go grid visited      =  go grid' visited'
+      where
+        (grid', visited') = next (grid, visited)
 
-    (visited1, p) = move arr p0
-    move = fromMaybe errorNext (lookup dir moves)
-    errorNext = error "Error: next: impossible direction."
+position :: Guardian -> Maybe Position
+position (Up p)     = Just p
+position (Down p)   = Just p
+position (DRight p) = Just p
+position (DLeft p)  = Just p
+position _          = Nothing
+
+next :: (Grid, Visited) -> (Grid, Visited)
+next (grid, visited) = (grid', visited')
+  where
+    (arr, _) = grid
+    grid' = (arr, g')
+    visited' = Set.union visited visited1
+
+    (visited1, g') = move grid
 
 findObstacle :: [(Int, Char)] -> Maybe (Int, Char)
 findObstacle = find (('#' ==) . snd)
 
+move :: Grid -> (Visited, Guardian)
+move (arr, g) = case g of
+  Up p -> moveUp arr p
+  Down p -> moveDown arr p
+  DRight p -> moveRight arr p
+  DLeft p -> moveLeft arr p
+  _       -> noMove arr (-1, -1)
+
+
 noMove, moveUp, moveDown, moveRight, moveLeft :: Move
-noMove _ _ = (Set.empty, nowhere)
+noMove _ _ = error "Error: noMove is called!"
 
 moveUp arr (x0, y0) =
   case findObstacle column of
-     Nothing     -> (visited 0, nowhere)
+     Nothing     -> (visited 0, Exit)
      Just (y, _) -> let y' = y+1
-                    in (visited y', ((x0, y'), DRight))
+                    in (visited y', DRight (x0, y'))
   where
     column   = reverse [(y, c) | ((x, y), c) <- assocs arr, x == x0, y < y0 ]
-    visited n = Set.fromList [(x0, y) |y <- [n..y0]]
+    visited n = Set.fromList [Up (x0, y) |y <- [n..y0]]
 
 moveDown arr (x0, y0) =
   case findObstacle column of
-    Nothing     -> (visited ysup, nowhere)
+    Nothing     -> (visited ysup, Exit)
     Just (y, _) -> let y' = y - 1
-                   in (visited y', ((x0, y-1), DLeft))
+                   in (visited y', DLeft (x0, y-1))
   where
     column = [(y, c) | ((x, y), c) <- assocs arr, x == x0, y > y0]
-    visited n = Set.fromList [(x0, y) |y <- [y0..n]]
+    visited n = Set.fromList [Down (x0, y) |y <- [y0..n]]
     (_, (_, ysup)) = bounds arr
 
 moveRight arr (x0, y0) =
   case findObstacle row of
-    Nothing     -> (visited xsup, nowhere)
+    Nothing     -> (visited xsup, Exit)
     Just (x, _) -> let x' = x - 1
-                   in (visited x', ((x',y0), Down))
+                   in (visited x', Down (x',y0))
   where
     row = [(x, c) | ((x,y), c) <- assocs arr, y == y0, x > x0]
-    visited n = Set.fromList [(x, y0) | x <- [x0..n]]
+    visited n = Set.fromList [DRight (x, y0) | x <- [x0..n]]
     (_, (xsup, _)) = bounds arr
 
 moveLeft arr (x0, y0) =
   case findObstacle row of
-    Nothing     -> (visited 0, nowhere)
+    Nothing     -> (visited 0, Exit)
     Just (x, _) -> let x' = x+1
-                   in (visited x', ((x', y0), Up))
+                   in (visited x', Up (x', y0))
   where
     row = reverse [(x, c) | ((x,y),c) <- assocs arr, y == y0, x < x0]
-    visited n = Set.fromList [(x, y0) | x <- [n..x0]]
+    visited n = Set.fromList [DLeft (x, y0) | x <- [n..x0]]
 
 printSolution :: Show a => String -> a -> IO ()
 printSolution part x = putStrLn (part <> ": " <> show x)
@@ -131,26 +137,34 @@ printSolution part x = putStrLn (part <> ": " <> show x)
 getDatas :: String -> IO Grid
 getDatas filename = parseDatas <$> readFile' filename
 
--- Using two foldr to build the Array and to find the
+guardian :: Position -> Char -> Maybe Guardian
+guardian p c = case c of
+  '^' -> Just (Up p)
+  'v' -> Just (Down p)
+  '>' -> Just (DRight p)
+  '<' -> Just (DLeft p)
+  _   -> Nothing
+
+-- Using two fold to build the Array and to find the
 -- guardian in a single path is slower than first build
 -- the Array, then find the guardian.
 parseDatas :: String -> Grid
-parseDatas s = (arr, guardian)
+parseDatas s = (arr, g)
   where
-    arr = buildGrid (lines s)
-    guardian = fromMaybe parseError (foldl' f Nothing (assocs arr))
-    parseError = error "Error: parseDatas can't find the guardian."
+    arr = buildGrid s
+    g = case findGuardian arr of
+          Just g' -> g'
+          Nothing -> error "Error: parseDatas can't find the guardian."
 
-    dirs = map swap directions
+findGuardian :: UArray Position Char -> Maybe Guardian
+findGuardian arr = uncurry guardian =<<
+                   find ((`elem` directions) . snd)
+                        (assocs arr)
 
-    f p@(Just _) _ = p
-    f Nothing ((x,y), c) = lookup c dirs >>= g
-      where
-        g dir = Just ((x,y), dir)
-
-buildGrid :: [String] -> UArray Position Char
-buildGrid ss = array ((0, 0),(width, height)) cs
+buildGrid :: String -> UArray Position Char
+buildGrid str = array ((0, 0),(width, height)) cs
   where
+    ss = lines str
     width = case ss of
               [] -> 0
               (s:_) -> length s - 1
@@ -161,21 +175,35 @@ buildGrid ss = array ((0, 0),(width, height)) cs
          ]
 
 -- tools for ghci
-showGrid :: Grid -> [String]
-showGrid grid = foldr f [] (range (yinf, ysup))
+showGridVisited :: Grid -> Set Guardian -> [String]
+showGridVisited grid visited = foldr f [] (range (yinf, ysup))
   where
-    (arr, ((x0, y0), dir)) = grid
+    gpos = visitedToPositions visited
+    (arr, g) = grid
     ((xinf, yinf), (xsup, ysup)) = bounds arr
-    dirs = map snd directions
+    (cg, (x0, y0)) = case g of
+      Up p     -> ('^', p)
+      Down p   -> ('v', p)
+      DRight p -> ('>', p)
+      DLeft p  -> ('<', p)
+      Exit     -> ('Q', (-1, -1))
+      Loop     -> ('O', (-1, -1))
 
-    f y strs = foldr g [] (range (xinf, xsup)) : strs
+    f y strs = foldr h [] (range (xinf, xsup)) : strs
       where
-        g x str = c : str
+        h x str = c : str
           where
             c0  = arr ! (x, y)
-            c | (x, y) == (x0, y0) = fromMaybe '.' (lookup dir directions)
-              | c0 `elem` dirs     = '.'
-              | otherwise          = c0
+            c | (x, y) == (x0, y0)      = cg
+              | (x,y) `Set.member` gpos = 'X'
+              | c0 `elem` directions    = '.'
+              | otherwise               = c0
+
+showGrid :: Grid -> [String]
+showGrid grid = showGridVisited grid Set.empty
 
 printGrid :: Grid -> IO ()
-printGrid grid = for_ (showGrid grid) putStrLn
+printGrid grid = printGridVisited grid Set.empty
+
+printGridVisited :: Grid -> Set Guardian -> IO ()
+printGridVisited grid visited = for_ (showGridVisited grid visited) putStrLn
