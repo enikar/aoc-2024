@@ -1,7 +1,10 @@
 -- AoC 2024, day 6
 -- Naive solution. It is quite slow.
 
+-- TODO: rewrite it using Data.Map.Strict instead of UArray
+
 {-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE StrictData #-}
 
 {- HLINT ignore "Eta reduce" -}
 module Main(main) where
@@ -19,16 +22,13 @@ import Data.Array.Unboxed
 
 import Data.Set (Set)
 import Data.Set qualified as Set
+import Data.Set.Extra qualified as Set -- for mapMaybe
 import Data.Foldable (for_)
 import Data.List
   (find
   ,foldl'
   )
-import Data.Maybe
-  (mapMaybe
-  ,fromMaybe
-  )
-
+import Data.Maybe (fromMaybe)
 import Control.Monad (void)
 
 type Position = (Int, Int)
@@ -54,12 +54,11 @@ main = do
   printSolution "Part1" (part1 visited)
   printSolution "Part2" (part2 visited grid)
 
-
 part1 :: Visited -> Int
 part1 visited = Set.size (visitedToPositions visited)
 
 visitedToPositions :: Visited -> Set Position
-visitedToPositions = Set.fromList . mapMaybe position . Set.toList
+visitedToPositions = Set.mapMaybe position
 
 position :: Guardian -> Maybe Position
 position (Up p)     = Just p
