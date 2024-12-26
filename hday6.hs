@@ -82,10 +82,10 @@ part2 visited grid = foldl' f 0 positions
     errorPart2 = error "Error: part2: can't find the start"
 
     f acc p
-      | p == p0    = acc
+      | p == p0   = acc
       | g == Exit = acc
       | g == Loop = acc+1
-      | otherwise  = acc -- not reach
+      | otherwise = acc -- not reach
       where
         arr1 = arr0 // [(p, '#')]
         g = untilEnd (arr1, g0)
@@ -110,14 +110,15 @@ next grid visited = (grid', visited')
 
 findObstacle :: [(Int, Char)] -> Maybe (Int, Char)
 findObstacle = find (('#' ==) . snd)
+{-# INLINE findObstacle #-}
 
 move :: Grid -> (Visited, Guardian)
 move (arr, g) = case g of
-  Up p -> moveUp arr p
-  Down p -> moveDown arr p
+  Up p     -> moveUp arr p
+  Down p   -> moveDown arr p
   DRight p -> moveRight arr p
-  DLeft p -> moveLeft arr p
-  _       -> noMove arr (-1, -1)
+  DLeft p  -> moveLeft arr p
+  _        -> noMove arr (-1, -1)
 
 noMove, moveUp, moveDown, moveRight, moveLeft :: Move
 noMove _ _ = error "Error: noMove is called!"
@@ -128,14 +129,14 @@ moveUp arr (x0, y0) =
      Just (y, _) -> let y' = y+1
                     in (visited y', DRight (x0, y'))
   where
-    column   = reverse [(y, c) | ((x, y), c) <- assocs arr, x == x0, y < y0 ]
+    column   = reverse [(y, c) | ((x, y), c) <- assocs arr, x == x0, y < y0]
     visited n = Set.fromList [Up (x0, y) |y <- [n..y0]]
 
 moveDown arr (x0, y0) =
   case findObstacle column of
     Nothing     -> (visited ysup, Exit)
-    Just (y, _) -> let y' = y - 1
-                   in (visited y', DLeft (x0, y-1))
+    Just (y, _) -> let y' = y-1
+                   in (visited y', DLeft (x0, y'))
   where
     column = [(y, c) | ((x, y), c) <- assocs arr, x == x0, y > y0]
     visited n = Set.fromList [Down (x0, y) |y <- [y0..n]]
@@ -144,7 +145,7 @@ moveDown arr (x0, y0) =
 moveRight arr (x0, y0) =
   case findObstacle row of
     Nothing     -> (visited xsup, Exit)
-    Just (x, _) -> let x' = x - 1
+    Just (x, _) -> let x' = x-1
                    in (visited x', Down (x',y0))
   where
     row = [(x, c) | ((x,y), c) <- assocs arr, y == y0, x > x0]
@@ -160,19 +161,13 @@ moveLeft arr (x0, y0) =
     row = reverse [(x, c) | ((x,y),c) <- assocs arr, y == y0, x < x0]
     visited n = Set.fromList [DLeft (x, y0) | x <- [n..x0]]
 
+
 printSolution :: Show a => String -> a -> IO ()
 printSolution part x = putStrLn (part <> ": " <> show x)
 
+-- parsing and intializations
 getDatas :: String -> IO Grid
 getDatas filename = parseDatas <$> readFile' filename
-
-guardian :: Position -> Char -> Maybe Guardian
-guardian p c = case c of
-  '^' -> Just (Up p)
-  'v' -> Just (Down p)
-  '>' -> Just (DRight p)
-  '<' -> Just (DLeft p)
-  _   -> Nothing
 
 -- Using two fold to build the Array and to find the
 -- guardian in a single path is slower than first build
@@ -203,6 +198,14 @@ buildGrid str = array ((0, 0),(width, height)) cs
          ,(x, c) <- zip [0..] s
          ]
 
+guardian :: Position -> Char -> Maybe Guardian
+guardian p c = case c of
+  '^' -> Just (Up p)
+  'v' -> Just (Down p)
+  '>' -> Just (DRight p)
+  '<' -> Just (DLeft p)
+  _   -> Nothing
+
 -- tools for ghci
 showGridVisited :: Grid -> Set Guardian -> [String]
 showGridVisited grid visited = foldr f [] (range (yinf, ysup))
@@ -216,7 +219,7 @@ showGridVisited grid visited = foldr f [] (range (yinf, ysup))
       DRight p -> ('>', p)
       DLeft p  -> ('<', p)
       Exit     -> ('Q', (-1, -1))
-      Loop    -> ('O', (-1, -1))
+      Loop     -> ('O', (-1, -1))
 
     f y strs = foldr h [] (range (xinf, xsup)) : strs
       where
@@ -256,5 +259,5 @@ demo filename = do
         printGridVisited grid' visited'
         summary n (Set.size visited')
         go (n+1) grid' visited'
-  go 0 grid0 Set.empty
+  go 1 grid0 Set.empty
   putStrLn "This is the end."
