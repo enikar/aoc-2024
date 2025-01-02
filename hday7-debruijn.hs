@@ -1,12 +1,18 @@
 -- AoC 2024 day 7
+-- 12 times faster than the previous version with De Bruijn sequence
 
 {- HLINT ignore "Eta reduce" -}
+
+{- Results:
+   Part1: 4122618559853
+   Part2: 227615740238334
+-}
 
 module Main where
 
 import Data.Char (isDigit)
 import Control.Monad (void)
-import Data.List (tails, foldl')
+import Data.List (tails)
 import Text.ParserCombinators.ReadP
   (ReadP
   ,readP_to_S
@@ -35,14 +41,14 @@ main = do
   showSolution "Part2" (partx 3 eqs)
 
 partx :: Int -> [Equation] -> Int
---partx p eqs = sum (map (checkEquation p) eqs)
 partx p eqs = foldr f 0 eqs
   where
     f eq acc = acc + checkEquation p eq
 
 -- returns 0 if there is no way to check the equation,
 -- else returns the searched value
--- TODO: further simplified
+-- We need to apply Op right to left to benefit from a
+-- foldr's short-circuit
 checkEquation :: Int -> Equation -> Int
 checkEquation p eq = if checks then val else 0
   where
@@ -59,18 +65,38 @@ checkEquation p eq = if checks then val else 0
 
     checks = any helper opss'
 
-    helper = (val ==) . fst . foldl' go (n, False) . zip nums
+    helper ls = case foldr go (val, False) (zip nums ls) of
+                  (n', _ ) |n' == n -> True
+                  (_, _ ) -> False
 
-    go (acc, prune) (x, op)
+    go (x, op) (acc, prune)
       | prune     = (0, True)
-      | otherwise = (acc', prune')
-        where
-          acc' = applyOp op acc x
-          prune' = acc' > val
+      | otherwise = case applyOp op x acc of
+          []  -> (0, True)
+          [v] -> (v, False)
+          _   -> error "Error: checkEquation!" -- not reach
 
-    applyOp Add a b = a+b
-    applyOp Mul a b = a*b
-    applyOp Concat a b = read (show a <> show b)
+    applyOp :: Op -> Int -> Int -> [Int]
+    applyOp Add a b = [b - a | b > a ]
+    applyOp Mul a b = [q | let (q,r) = b `quotRem` a, r == 0]
+    applyOp Concat a b = concatOp a b
+
+    -- concatOp :: Int -> Int -> [Int]
+    -- concatOp a b
+    --   |a == 0    = [b | b>0]
+    --   |(qa, ra) <- a `quotRem` 10
+    --   ,(qb, rb) <- b `quotRem` 10
+    --   , ra == rb = concatOp qa qb
+    --   | otherwise = []
+
+    -- This defintion seems to be a bit faster.
+    concatOp :: Int -> Int -> [Int]
+    concatOp 0 b = [b | b>0 ]
+    concatOp a b
+      |(qa, ra) <- a `quotRem` 10
+      ,(qb, rb) <- b `quotRem` 10
+      , ra == rb = concatOp qa qb
+    concatOp _ _ = []
 
 parse :: ReadP a -> ReadS a
 parse = readP_to_S
