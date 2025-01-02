@@ -1,18 +1,20 @@
--- AoC 2024, day 10
+-- AoC 2024, day 10 "optimized" version.
+{-# Language ImportQualifiedPost #-}
 
 {- HLINT ignore "Eta reduce" -}
 
-import Data.Map.Strict qualified as M
-import Data.Map.Strict (Map
-                       ,(!)
-                       )
-
-import Data.Set qualified as S
-import Data.Set (Set)
 import Data.List (foldl')
+import Data.Map.Strict qualified as M
+import Data.Map.Strict
+  (Map
+  ,(!)
+  )
 
 -- module for parsing
-import Data.Char (isDigit, digitToInt)
+import Data.Char
+  (isDigit
+  ,digitToInt
+  )
 import Text.ParserCombinators.ReadP
   (ReadP
   ,readP_to_S
@@ -25,11 +27,10 @@ import Text.ParserCombinators.ReadP
   )
 
 type Grid = Map (Int,Int) Int
-type Positions = Set (Int, Int)
-type Trails = Map (Int, Int) Int
+type Trails = Map (Int,Int) Int
 
 moves :: [(Int, Int)]
-moves = [(0,1), (1, 0), (-1, 0), (0, -1)]
+moves = [(0,1), (1,0), (-1,0), (0,-1)]
 
 getDatas :: String -> IO Grid
 getDatas filename = parseDatas <$> readFile filename
@@ -37,60 +38,60 @@ getDatas filename = parseDatas <$> readFile filename
 printSolution :: Show a => String -> a -> IO ()
 printSolution part x = putStrLn (part <> ": " <> show x)
 
+
+-- we precompute an intermediate result for solving part1 and
+-- part2. In this way all Trails are traversed only once.
 main :: IO ()
 main = do
   grid <- getDatas "day10.txt"
-  let ths = trailHeads grid
-  printSolution "Part1" (part1 grid ths)
-  printSolution "Part2" (part2 grid ths)
+  let trails = allTrails grid
+  printSolution "Part1" (partx M.size trails)
+  printSolution "Part2" (partx sumTrails trails)
 
 
-part1 :: Grid -> [(Int, Int)] -> Int
-part1 grid = foldl' f 0
+allTrails :: Grid -> [Trails]
+allTrails grid = foldl' f [] (trailHeads grid)
   where
-    f acc th = acc + S.size (score grid S.empty th)
+    f acc th = trails : acc
+      where
+        trails = countTrails grid M.empty th
 
-score :: Grid -> Positions -> (Int, Int) -> Positions
-score grid visited pos = foldl' f visited (nextPositions grid pos)
+partx :: (Trails -> Int) ->  [Trails] -> Int
+partx f = foldl' g 0
   where
-    f vis p
-      | (grid ! p) == 9 = S.insert p vis
-      | otherwise       = score grid vis p
+    g acc trails = acc + f trails
 
-
-part2 :: Grid -> [(Int, Int)] -> Int
-part2 grid = foldl' f 0
-  where
-    f acc th = acc + M.foldl' (+) 0 (countTrails grid M.empty th)
+sumTrails :: Trails -> Int
+sumTrails = M.foldl' (+) 0
 
 countTrails :: Grid -> Trails -> (Int, Int) -> Trails
 countTrails grid visited pos = foldl' f visited (nextPositions grid pos)
   where
     f vis p
       | grid ! p == 9 = M.alter g  p vis
-      | otherwise   = countTrails grid vis p
+      | otherwise     = countTrails grid vis p
 
     g Nothing  = Just 1
     g (Just x) = Just (x+1)
 
-doMove :: (Int, Int) -> (Int, Int) -> (Int, Int)
-doMove (x, y) (mx, my) = (x+mx, y+my)
+move :: (Int, Int) -> (Int, Int) -> (Int, Int)
+move (x, y) (mx, my) = (x+mx, y+my)
 
 nextPositions :: Grid -> (Int, Int) -> [(Int, Int)]
-nextPositions grid pos = foldr f [] moves
+nextPositions grid pos = foldl' f [] moves
   where
     val = grid ! pos
-    f move acc
+    f acc mv
       | M.member pos' grid && val' - val == 1 = pos' : acc
       | otherwise                             = acc
       where
-        pos' = doMove pos move
+        pos' = move pos mv
         val' = grid ! pos'
 
 trailHeads :: Grid -> [(Int, Int)]
-trailHeads grid = M.foldrWithKey' f [] grid
+trailHeads grid = M.foldlWithKey' f [] grid
   where
-    f pos v acc = if v == 0 then pos:acc else acc
+    f acc pos v = if v == 0 then pos:acc else acc
 
 -- parsing stuff
 parse :: ReadP a -> ReadS a
@@ -100,10 +101,11 @@ digit :: ReadP Int
 digit = digitToInt <$> satisfy isDigit
 
 parseDatas :: String -> Grid
-parseDatas str = case parse readDatas str of
-                   [x] -> fst x
-                   []  -> error "Error: parseDatas: can't parse."
-                   _   -> error "Error: parseDatas: there are more than one result."
+parseDatas str =
+  case parse readDatas str of
+    [x] -> fst x
+    []  -> error "Error: parseDatas: can't parse."
+    _   -> error "Error: parseDatas: there are more than one result."
 
 readDatas :: ReadP Grid
 readDatas = do
