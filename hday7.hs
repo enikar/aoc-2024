@@ -1,8 +1,10 @@
 -- AoC 2024 day 7
--- 12 times faster than the previous version.
+-- 18 times faster than the previous version.
 -- We mixed the two version De Bruijn and Applicative.
 -- We can choose the method passing an argument either DeBruijn
 -- or anything else. Default to Applicative since it is faster.
+
+{-# LANGUAGE ImportQualifiedPost #-}
 
 {- HLINT ignore "Eta reduce" -}
 
@@ -16,6 +18,14 @@ module Main where
 import System.IO (readFile')
 import System.Environment (getArgs)
 import Data.List (foldl', tails)
+import Data.IntMap.Strict
+  (member
+  ,insert
+  ,(!)
+  )
+import Data.IntMap.Strict qualified as IntMap
+
+-- modules for parsing
 import Data.Char (isDigit)
 import Control.Monad (replicateM, void)
 import Text.ParserCombinators.ReadP
@@ -30,6 +40,12 @@ import Text.ParserCombinators.ReadP
   ,eof
   )
 
+-- | Equation represent a target @value@ and @numbers@
+-- to reach this @value@ by combining @numbers@ with 2
+-- or 3 operations (Add, Mul and Concat).
+-- @count@ is equal to length of @numbers@ - 1, since
+-- we need only @count@ operations to combiner @count@+1
+-- @numbers@
 data Equation =
   Equation {value :: Int
            ,count :: Int
@@ -39,11 +55,14 @@ data Equation =
 data Op = Add | Mul | Concat
   deriving (Show, Eq)
 
-data Method = APPLICATIVE | DEBRUIJN
+operations :: [Op]
+operations = [Add, Mul, Concat]
 
 showSolution :: Show a => String -> a -> IO ()
 showSolution part answer =
   putStrLn (part <> ": " <> show answer)
+
+data Method = APPLICATIVE | DEBRUIJN
 
 parseMethod :: [String] -> Method
 parseMethod ["DeBruijn"] = DEBRUIJN
@@ -56,25 +75,36 @@ main = do
   showSolution "Part1" (partx method 2 eqs)
   showSolution "Part2" (partx method 3 eqs)
 
+-- | @partx method p eqs@ @method@ is either APPLICATIVE or DEBRUIJN.
+-- @p@ is equal to 2 (for Part 1) or 3 (for Part 2).
+-- For p == 2, we use only two operations Add and Mul.
+-- For p == 3, we use Three oprations: Add, Mul and Concat.
+-- @eqs@ is the list of Equation to try.
+-- We Use an IntMap to memoize the list [[Op]] respective to the
+-- value of (count eq) for each Equation. These values are between
+-- 3 and 10.
 partx :: Method -> Int -> [Equation] -> Int
-partx method p eqs = foldl' f 0 eqs
+partx method p eqs = fst (foldl' f (0, IntMap.empty) eqs)
   where
-    f acc eq = acc + checkEquation (opss method (count eq)) val eq
+    permutations APPLICATIVE cnt = replicateM cnt (take p operations)
+    permutations DEBRUIJN cnt = take (p^cnt) (map (take cnt) ops)
+      where ops = tails (cycle (deBruijnSequence cnt p))
+
+    f (acc, opss) eq = (acc', opss')
       where
         val = value eq
+        n = count eq
 
-    opss APPLICATIVE cnt = replicateM cnt (take p ops)
-      where ops = [Add, Mul, Concat]
+        acc' = acc + checkEquation (opss' ! n) val eq
 
-    opss DEBRUIJN cnt = take (p^cnt) (map (take cnt) ops)
-      where
-        ops = tails (cycle (deBruijnSequence cnt p))
+        opss' | n `member` opss = opss
+              | otherwise       = insert n (permutations method n) opss
 
--- returns 0 if there is no way to check the equation,
--- else returns the searched value.
--- eq is just the Equation to try
--- opps are all permutations of Op with the length (count eq).
--- val is (value eq)
+-- | @checkEquation opss val eq@ returns 0 if there is no
+-- way to check the equation, else returns the searched value.
+-- @eq@ is just the Equation to try
+-- @opps@ are all permutations of Op with the length (count eq).
+-- @val@ is (value eq), i.e. the searched value.
 checkEquation :: [[Op]] -> Int -> Equation -> Int
 checkEquation opss val eq = if checks then val else 0
   where
@@ -86,7 +116,8 @@ checkEquation opss val eq = if checks then val else 0
 
     checks = any helper opss
     -- we use foldr to short-cicuit when possible.
-    -- Then the operators are applied in reverse order to the num.
+    -- Then the operations are applied in reverse order to the nums,
+    -- and we start with the target val
     helper :: [Op] -> Bool
     helper = (== n)
              . fst
@@ -100,7 +131,7 @@ checkEquation opss val eq = if checks then val else 0
           [v] -> (v, False)
           _   -> error "Error: checkEquation!" -- not reach
 
--- reverse operators. Thanks to glguy.
+-- reverse operations. Thanks to glguy.
 -- from: https://github.com/glguy/advent/blob/main/solutions/src/2024/07.hs
 applyOp :: Op -> Int -> Int -> [Int]
 applyOp Add a b = [b - a | b > a ]
@@ -159,4 +190,4 @@ deBruijnSequence n k =
     takeWhile (not . null) .
     iterate (nextLyndonWord n k) $ [0]
    where
-     toOps = map ([Add, Mul, Concat] !!)
+     toOps = map (operations !!)
