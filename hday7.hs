@@ -18,6 +18,10 @@ module Main where
 import System.IO (readFile')
 import System.Environment (getArgs)
 import Data.List (foldl', tails)
+import Data.Maybe
+  (isNothing
+  ,fromJust
+  )
 import Data.IntMap.Strict ((!))
 import Data.IntMap.Strict qualified as IntMap
 
@@ -110,45 +114,44 @@ checkEquation opss val eq = if checks then val else 0
                   [_] -> errorCheck
                   (n':nums') -> (n', nums')
 
-    checks = any helper opss
+    checks = any checksEq opss
     -- we use foldr to short-cicuit when possible.
     -- Then the operations are applied in reverse order to the nums,
     -- and we start with the target val
-    helper :: [Op] -> Bool
-    helper = (== n)
-             . foldr tryToReduce val
+    checksEq :: [Op] -> Bool
+    checksEq =  (== Just n)
+             . foldr tryToReduce (Just val)
              . zip nums
 
 -- | @tryToReduce (x, op) acc@ apply op to x and acc.
--- and short-circuit when applyOp returns 0.
--- Since we search a positive value, we can use 0 as a prune value.
-tryToReduce :: (Int, Op) -> Int -> Int
+-- and short-circuit when applyOp returns Nothing.
+tryToReduce :: (Int, Op) -> Maybe Int -> Maybe Int
 tryToReduce (x, op) acc
-  | acc == 0     = 0
-  | otherwise = applyOp op x acc
+  | isNothing acc =  Nothing
+  | otherwise     = applyOp op x (fromJust acc) -- here acc isn't a Nothing
 
 -- reverse operations. Thanks to glguy.
 -- from: https://github.com/glguy/advent/blob/main/solutions/src/2024/07.hs
 -- Adapted to provide the same type result as tryToReduce.
-applyOp :: Op -> Int -> Int -> Int
+applyOp :: Op -> Int -> Int -> Maybe Int
 applyOp Add a b
-  | b > a     = b - a
-  | otherwise = 0
+  | b > a     = Just (b - a)
+  | otherwise = Nothing
 applyOp Mul a b
   | (q, r) <- b `quotRem` a
-  ,r == 0    = q
-  |otherwise = 0
+  ,r == 0    = Just q
+  |otherwise = Nothing
 applyOp Concat a b = concatOp a b
 
-concatOp :: Int -> Int -> Int
+concatOp :: Int -> Int -> Maybe Int
 concatOp 0 b
-  | b > 0     = b
-  | otherwise = 0
+  | b > 0     = Just b
+  | otherwise = Nothing
 concatOp a b
   |(qa, ra) <- a `quotRem` 10
   ,(qb, rb) <- b `quotRem` 10
   , ra == rb = concatOp qa qb
-concatOp _ _ = 0
+concatOp _ _ = Nothing
 
 -- Parsing stuff
 number :: ReadP Int
