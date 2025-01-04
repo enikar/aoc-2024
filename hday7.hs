@@ -22,7 +22,10 @@ import Data.IntMap.Strict ((!))
 import Data.IntMap.Strict qualified as IntMap
 
 -- modules for parsing
-import Data.Char (isDigit)
+import Data.Char
+  (isDigit
+  ,toLower
+  )
 import Control.Monad (replicateM, void)
 import Text.ParserCombinators.ReadP
   (ReadP
@@ -60,13 +63,19 @@ showSolution part answer =
 
 data Method = APPLICATIVE | DEBRUIJN
 
+lower :: String -> String
+lower = map toLower
+
 parseMethod :: [String] -> Method
-parseMethod ["DeBruijn"] = DEBRUIJN
-parseMethod _            = APPLICATIVE
+parseMethod (x:_) | lower x == "debruijn" = DEBRUIJN
+parseMethod _                             = APPLICATIVE
 
 main :: IO ()
 main = do
   method <- parseMethod <$> getArgs
+  case method of
+    APPLICATIVE -> putStrLn "Using Applicative (replicateM) to calculate permutations"
+    DEBRUIJN  -> putStrLn "Using De Bruijn sequence to calculate permutations"
   eqs <- parseDatas <$> readFile' "day7.txt"
   showSolution "Part1" (partx method 2 eqs)
   showSolution "Part2" (partx method 3 eqs)
