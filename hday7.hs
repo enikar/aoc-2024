@@ -18,10 +18,6 @@ module Main where
 import System.IO (readFile')
 import System.Environment (getArgs)
 import Data.List (foldl', tails)
-import Data.Maybe
-  (isNothing
-  ,fromJust
-  )
 import Data.IntMap.Strict ((!))
 import Data.IntMap.Strict qualified as IntMap
 
@@ -119,16 +115,15 @@ checkEquation opss val eq = if checks then val else 0
     -- Then the operations are applied in reverse order to the nums,
     -- and we start with the target val
     checksEq :: [Op] -> Bool
-    checksEq =  (== Just n)
-             . foldr tryToReduce (Just val)
-             . zip nums
+    checksEq = (== Just n)
+               . foldr tryToReduce (Just val)
+               . zip nums
 
 -- | @tryToReduce (x, op) acc@ apply op to x and acc.
 -- and short-circuit when applyOp returns Nothing.
 tryToReduce :: (Int, Op) -> Maybe Int -> Maybe Int
-tryToReduce (x, op) acc
-  | isNothing acc =  Nothing
-  | otherwise     = applyOp op x (fromJust acc) -- here acc isn't a Nothing
+tryToReduce _       Nothing    = Nothing
+tryToReduce (x, op) (Just acc) = applyOp op x acc
 
 -- reverse operations. Thanks to glguy.
 -- from: https://github.com/glguy/advent/blob/main/solutions/src/2024/07.hs
