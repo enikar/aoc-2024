@@ -18,11 +18,7 @@ module Main where
 import System.IO (readFile')
 import System.Environment (getArgs)
 import Data.List (foldl', tails)
-import Data.IntMap.Strict
-  (member
-  ,insert
-  ,(!)
-  )
+import Data.IntMap.Strict ((!))
 import Data.IntMap.Strict qualified as IntMap
 
 -- modules for parsing
@@ -44,7 +40,7 @@ import Text.ParserCombinators.ReadP
 -- to reach this @value@ by combining @numbers@ with 2
 -- or 3 operations (Add, Mul and Concat).
 -- @count@ is equal to length of @numbers@ - 1, since
--- we need only @count@ operations to combiner @count@+1
+-- we need only @count@ operations to combine @count@+1
 -- @numbers@
 data Equation =
   Equation {value :: Int
@@ -97,8 +93,8 @@ partx method p eqs = fst (foldl' f (0, IntMap.empty) eqs)
 
         acc' = acc + checkEquation (opss' ! n) val eq
 
-        opss' | n `member` opss = opss
-              | otherwise       = insert n (permutations method n) opss
+        opss' | n `IntMap.member` opss = opss
+              | otherwise       = IntMap.insert n (permutations method n) opss
 
 -- | @checkEquation opss val eq@ returns 0 if there is no
 -- way to check the equation, else returns the searched value.
@@ -126,25 +122,29 @@ checkEquation opss val eq = if checks then val else 0
 
     go (x, op) (acc, prune)
       | prune     = (0, True)
-      | otherwise = case applyOp op x acc of
-          []  -> (0, True)
-          [v] -> (v, False)
-          _   -> error "Error: checkEquation!" -- not reach
+      | otherwise = applyOp op x acc
 
 -- reverse operations. Thanks to glguy.
 -- from: https://github.com/glguy/advent/blob/main/solutions/src/2024/07.hs
-applyOp :: Op -> Int -> Int -> [Int]
-applyOp Add a b = [b - a | b > a ]
-applyOp Mul a b = [q | let (q,r) = b `quotRem` a, r == 0]
+applyOp :: Op -> Int -> Int -> (Int, Bool)
+applyOp Add a b
+  | b > a     = (b - a, False)
+  | otherwise = (0, True)
+applyOp Mul a b
+  | (q, r) <- b `quotRem` a
+  ,r == 0    = (q, False)
+  |otherwise = (0, True)
 applyOp Concat a b = concatOp a b
 
-concatOp :: Int -> Int -> [Int]
-concatOp 0 b = [b | b>0 ]
+concatOp :: Int -> Int -> (Int, Bool)
+concatOp 0 b
+  | b > 0     = (b, False)
+  | otherwise = (0, True)
 concatOp a b
   |(qa, ra) <- a `quotRem` 10
   ,(qb, rb) <- b `quotRem` 10
   , ra == rb = concatOp qa qb
-concatOp _ _ = []
+concatOp _ _ = (0, True)
 
 -- Parsing stuff
 number :: ReadP Int
