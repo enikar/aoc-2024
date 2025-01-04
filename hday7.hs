@@ -36,11 +36,11 @@ import Text.ParserCombinators.ReadP
   ,eof
   )
 
--- | Equation represent a target @value@ and @numbers@
--- to reach this @value@ by combining @numbers@ with 2
--- or 3 operations (Add, Mul and Concat).
+-- | Equation represent a target @value@ and @numbers@.
+-- We try to reach this @value@ by combining @numbers@
+-- with 2 or 3 operations (Add, Mul and Concat).
 -- @count@ is equal to length of @numbers@ - 1, since
--- we need only @count@ operations to combine @count@+1
+-- we only need @count@ operations to combine @count@+1
 -- @numbers@
 data Equation =
   Equation {value :: Int
@@ -116,35 +116,39 @@ checkEquation opss val eq = if checks then val else 0
     -- and we start with the target val
     helper :: [Op] -> Bool
     helper = (== n)
-             . fst
-             . foldr go (val, False)
+             . foldr tryToReduce val
              . zip nums
 
-    go (x, op) (acc, prune)
-      | prune     = (0, True)
-      | otherwise = applyOp op x acc
+-- | @tryToReduce (x, op) acc@ apply op to x and acc.
+-- and short-circuit when applyOp returns 0.
+-- Since we search a positive value, we can use 0 as a prune value.
+tryToReduce :: (Int, Op) -> Int -> Int
+tryToReduce (x, op) acc
+  | acc == 0     = 0
+  | otherwise = applyOp op x acc
 
 -- reverse operations. Thanks to glguy.
 -- from: https://github.com/glguy/advent/blob/main/solutions/src/2024/07.hs
-applyOp :: Op -> Int -> Int -> (Int, Bool)
+-- Adapted to provide the same type result as tryToReduce.
+applyOp :: Op -> Int -> Int -> Int
 applyOp Add a b
-  | b > a     = (b - a, False)
-  | otherwise = (0, True)
+  | b > a     = b - a
+  | otherwise = 0
 applyOp Mul a b
   | (q, r) <- b `quotRem` a
-  ,r == 0    = (q, False)
-  |otherwise = (0, True)
+  ,r == 0    = q
+  |otherwise = 0
 applyOp Concat a b = concatOp a b
 
-concatOp :: Int -> Int -> (Int, Bool)
+concatOp :: Int -> Int -> Int
 concatOp 0 b
-  | b > 0     = (b, False)
-  | otherwise = (0, True)
+  | b > 0     = b
+  | otherwise = 0
 concatOp a b
   |(qa, ra) <- a `quotRem` 10
   ,(qb, rb) <- b `quotRem` 10
   , ra == rb = concatOp qa qb
-concatOp _ _ = (0, True)
+concatOp _ _ = 0
 
 -- Parsing stuff
 number :: ReadP Int
