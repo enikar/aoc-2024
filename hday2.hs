@@ -52,8 +52,4 @@ part2' ls = foldr (f . removeAt ls) False [0 .. maxindex]
     maxindex = length ls - 1
 
     f _ True = True
-    f xs False = all (between inf sup) ds
-      where
-        ds = computeDiffs xs
-        sign = signum (head ds)
-        (inf, sup) = if sign == 1 then (1, 3) else (-3, -1)
+    f xs False = part1 xs
