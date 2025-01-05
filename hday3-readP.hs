@@ -15,7 +15,7 @@ import Data.Char (isDigit)
 import Control.Monad (void)
 import Control.Monad.Loops (whileM_)
 import Control.Monad.Extra (andM)
-
+import Data.Functor (($>))
 import Text.ParserCombinators.ReadP
   (ReadP
   ,readP_to_S
@@ -95,26 +95,25 @@ noParse p = do
     [] -> pure True
     _  -> pure False
 
+-- Here, we can sequence_ over a list of parser,
+-- but it is a bit slower.
 readMul_ :: ReadP ()
 readMul_ = do
   void (string "mul(")
-  void positive
+  void (munch1 isDigit)
   void (char ',')
-  void positive
+  void (munch1 isDigit)
   void (char ')')
 
 readExpr :: ReadP Expr
 readExpr = readDo <++ readDont <++ readMul
 
+-- Hlint suggested to use $>, so we tried.
 readDont :: ReadP Expr
-readDont = do
-  void (string "don't()")
-  pure Dont
+readDont = string "don't()" $> Dont
 
 readDo :: ReadP Expr
-readDo = do
-  void (string "do()")
-  pure Do
+readDo = string "do()" $> Do
 
 readMul :: ReadP Expr
 readMul = do
