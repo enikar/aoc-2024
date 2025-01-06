@@ -1,16 +1,18 @@
 -- AoC 2024, Day 3
+-- Finally I got a solution using Text.Regex.TDFA as fast
+-- as the one using ReadP
+
 {-# LANGUAGE OverloadedStrings #-}
 
 {- HLINT ignore "Eta reduce" -}
 
-module Main where
+module Main(main) where
 
 import Data.Maybe (fromMaybe)
 import Data.Text.Read (decimal, signed)
 import Data.List (foldl')
 import Data.Array (Array, (!))
 import Data.Text (Text)
-import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import Text.Regex.TDFA (CompOption(..)
                        ,ExecOption(..)
@@ -19,6 +21,8 @@ import Text.Regex.TDFA (CompOption(..)
                        ,matchAllText
                        )
 import Text.Regex.TDFA.Text ()
+
+data Expr = Do |Dont |Val Int
 
 compOpt :: CompOption
 compOpt = CompOption {caseSensitive = True
@@ -31,34 +35,46 @@ compOpt = CompOption {caseSensitive = True
 execOpt :: ExecOption
 execOpt = ExecOption { captureGroups = False }
 
-regPart1 :: Regex
-regPart1 = makeRegexOpts
-             compOpt
-             execOpt
-             ("mul\\([[:digit:]]{1,3},[[:digit:]]{1,3}\\)" :: Text)
-
 showSolution :: String -> Int -> IO ()
 showSolution part answer =
   putStrLn (part <> ": " <> show answer)
 
+getExprs :: String -> IO [Expr]
+getExprs filename = parseExprs <$> TIO.readFile filename
+
 main :: IO ()
 main = do
-  text <- T.concat . T.lines <$> TIO.readFile "day3.txt"
-  showSolution "Part1: " (part1 text)
-  showSolution "Part2: " (part2 text)
+  exprs <- getExprs "day3.txt"
+  showSolution "Part1: " (part1 exprs)
+  showSolution "Part2: " (part2 exprs)
 
-part1 :: Text -> Int
-part1 text = sumProduct nums
+part1 :: [Expr] -> Int
+part1  = foldl' f 0
+   where
+     f acc (Val n) = acc + n
+     f acc _       = acc
+
+part2 :: [Expr] -> Int
+part2 = fst . foldl' f (0, True)
   where
-    nums = extractNums matches
-    matches  = extractMatches (matchAllText regPart1 text)
+    f (n, _)          Do      = (n, True)
+    f (n, _)          Dont    = (n, False)
+    f  acc@(_, False) (Val _) = acc
+    f (acc, True)     (Val n) = (acc+n, True)
+
+-- parsing stuff
+parseExprs :: Text -> [Expr]
+parseExprs text = map f matches
+  where
+    matches = extractMatches (matchAllText regExpr text)
+
+    f "don't()" = Dont
+    f "do()"    = Do
+    f x         = Val (product (extractNum x))
 
 -- is there a better way to extract matches when using matchAllText?
 extractMatches :: [Array Int (Text, (Int, Int))] -> [Text]
 extractMatches = map (fst . (! 0))
-
-extractNums :: [Text] -> [[Int]]
-extractNums = map extractNum
 
 regXNum :: Regex
 regXNum = makeRegexOpts
@@ -84,27 +100,8 @@ textReadMaybe text = case signed decimal text of
                        Left _ -> Nothing
                        Right (x, _) -> Just x
 
-regPart2 :: Regex
-regPart2 = makeRegexOpts
+regExpr :: Regex
+regExpr = makeRegexOpts
               compOpt
               execOpt
               ("mul\\([[:digit:]]{1,3},[[:digit:]]{1,3}\\)|do\\(\\)|don't\\(\\)" :: Text)
-
-part2 :: Text -> Int
-part2 text = sumProduct nums
-  where
-    matches = extractMatches (matchAllText regPart2 text)
-    nums = selectMul matches
-
-selectMul :: [Text] -> [[Int]]
-selectMul = snd . foldl' f (True, [])
-  where
-    f (_, muls)     "don't()" = (False, muls)
-    f (_, muls)     "do()"    = (True, muls)
-    f (False, muls) _         = (False, muls)
-    f (True, muls)  x         = (True, extractNum x : muls)
-
-sumProduct :: [[Int]] -> Int
-sumProduct ls = foldl' f 0 ls
-  where
-    f acc nums = acc + product nums

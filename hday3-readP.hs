@@ -1,7 +1,7 @@
 -- AoC 2024, Day 3
 
--- solution using ReadP, it's a bit faster than using
--- Data.Text + Text.Regex.TDFA
+-- solution using ReadP, same speed as
+-- Data.Text + Text.Regex.TDFA since I rewrote it.
 -- We should improve the parsing, but with ReadP it's
 -- not obvious.
 
@@ -108,7 +108,7 @@ readMul_ = do
 readExpr :: ReadP Expr
 readExpr = readDo <++ readDont <++ readMul
 
--- Hlint suggested to use $>, so we tried.
+-- Hlint suggested to use ($>), so we tried.
 readDont :: ReadP Expr
 readDont = string "don't()" $> Dont
 
