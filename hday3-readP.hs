@@ -2,8 +2,8 @@
 
 -- solution using ReadP, same speed as
 -- Data.Text + Text.Regex.TDFA since I rewrote it.
--- We should improve the parsing, but with ReadP it's
--- not obvious.
+-- Finally I simplified the parsing but it is not
+-- yet acceptable.
 
 module Main where
 
@@ -12,23 +12,20 @@ import Data.List (foldl')
 
 --  modules for parsing
 import Data.Char (isDigit)
-import Control.Monad (void)
-import Control.Monad.Loops (whileM_)
-import Control.Monad.Extra (andM)
 import Data.Functor (($>))
+import Control.Monad (void)
 import Text.ParserCombinators.ReadP
   (ReadP
   ,readP_to_S
   ,(<++)
-  ,sepBy1
   ,munch1
+  ,many1
   ,char
   ,string
-  ,look
   ,get
   )
 
-data Expr = Do | Dont | Val Int
+data Expr = Do |Dont |Val Int
 
 showSolution :: String -> Int -> IO ()
 showSolution part answer =
@@ -65,58 +62,51 @@ positive = read <$> munch1 isDigit
 -- until end while parsing all Expr i.e.
 -- do(), don't() and mul(n1,n2).
 -- As last resort we take the last element of the
--- the results given by readDatas since ReadP gives
+-- the results given by parseExprs since ReadP gives
 -- us all results from smallest to biggest.
+
+-- But there is a simpler solution than what I wrote
+-- the first time, write 4 parsers:
+--  - parseDo, parseDont, parseMul
+--    and anyChar (just a (void get))
+-- write a recursive parser that tries between these
+-- 4 parsers (asum doesn't work here):
+-- next = parseDo
+--        <++ parseDont
+--        <++ parseMul
+--        <++ (anyChar *> next)
+-- use: many1 next
+-- to parse the input
+-- Next time I'll use attoparsec.
+
 parseDatas :: String -> [Expr]
 parseDatas str =
-  case  readP_to_S readDatas str of
+  case  readP_to_S parseExprs str of
     xs@(_:_) -> fst (last xs)
     []  -> error "Error: parseDatas: can't parse."
 
-readDatas :: ReadP [Expr]
-readDatas = do
-  whileNoExpr
-  *> sepBy1 readExpr whileNoExpr
+-- The issue is, many1 isn't greedy and tries all solutions
+parseExprs :: ReadP [Expr]
+parseExprs = many1 next
 
-whileNoExpr :: ReadP ()
-whileNoExpr = whileM_ noExpr get
+next :: ReadP Expr
+next = parseDo
+        <++ parseDont
+        <++ parseMul
+        <++ (anyChar *> next)
 
-noExpr :: ReadP Bool
-noExpr =
-  andM [noParse readMul_
-       ,noParse (void (string "do()"))
-       ,noParse (void (string "don't()"))
-       ]
-
-noParse :: ReadP () -> ReadP Bool
-noParse p = do
-  s <- look
-  case readP_to_S p s of
-    [] -> pure True
-    _  -> pure False
-
--- Here, we can sequence_ over a list of parser,
--- but it is a bit slower.
-readMul_ :: ReadP ()
-readMul_ = do
-  void (string "mul(")
-  void (munch1 isDigit)
-  void (char ',')
-  void (munch1 isDigit)
-  void (char ')')
-
-readExpr :: ReadP Expr
-readExpr = readDo <++ readDont <++ readMul
+anyChar :: ReadP ()
+anyChar = void get
 
 -- Hlint suggested to use ($>), so we tried.
-readDont :: ReadP Expr
-readDont = string "don't()" $> Dont
+parseDont :: ReadP Expr
+parseDont = string "don't()" $> Dont
 
-readDo :: ReadP Expr
-readDo = string "do()" $> Do
+parseDo :: ReadP Expr
+parseDo = string "do()" $> Do
 
-readMul :: ReadP Expr
-readMul = do
+parseMul :: ReadP Expr
+parseMul = do
   void (string "mul(")
   n1 <- positive
   void (char ',')
