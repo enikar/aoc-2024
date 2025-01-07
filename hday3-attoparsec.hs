@@ -1,7 +1,7 @@
 -- AoC 2024, Day3
 -- This time we are using attoparsec.
-
 -- it is very fast.
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 
@@ -11,18 +11,18 @@ import Data.List (foldl')
 
 -- modules for parsing
 import Data.Either (fromRight)
+import Data.Functor (void)
 import Control.Applicative (asum)
-import Control.Monad (void)
 import Data.Text (Text)
 import Data.Text.IO qualified as TIO
 import Data.Attoparsec.Text
-  (decimal
+  (Parser
+  ,parseOnly
+  ,decimal
   ,string
   ,char
   ,anyChar
   ,many1
-  ,parseOnly
-  ,Parser
   )
 
 
