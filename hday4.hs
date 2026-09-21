@@ -7,7 +7,8 @@
 
 module Main(main) where
 
-import Data.List (foldl')
+-- import Data.List (foldl')
+import Data.Maybe (listToMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
@@ -70,7 +71,10 @@ part2 :: [Text] -> Int
 part2 ts = foldl' f 0 [0..limit]
   where
     limit = length ts - 3
-    lg  = T.length (head ts) - 3
+    head_ts = case listToMaybe ts of
+      (Just x) -> x
+      Nothing  -> error "part2: input list is empty"
+    lg  = T.length head_ts - 3
 
     matchCount = xMatchCount lg
 
@@ -116,8 +120,12 @@ firstLine = makeRegexOpts compOpt execOpt ("^[MS].[MS]" :: Text)
 xMasCheck :: [Text] -> Bool
 xMasCheck ts = matchA && matchMS && matchSM
   where
+    head_ts = case listToMaybe ts of
+      (Just x) -> x
+      Nothing  -> error "xMasCheck: the input list is empty."
+
     matchA = T.index (ts !! 1) 1 == 'A'
-    match1 = match firstLine (head ts) :: Text
+    match1 = match firstLine head_ts :: Text
     matchMS = not (T.null match1)
     match1' = T.pack [T.head match1, T.last match1]
     reg = lastLine ! match1'
