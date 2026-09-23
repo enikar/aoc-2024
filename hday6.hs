@@ -15,21 +15,13 @@ import Data.Array.Unboxed
   ,array
   ,assocs
   ,bounds
-  ,range
-  ,(!)
   ,(//)
   )
 
 import Data.Set (Set)
 import Data.Set qualified as Set
-import Data.Set.Extra qualified as Set -- for mapMaybe
-import Data.Foldable (for_)
-import Data.List
-  (find
-  ,foldl'
-  )
+import Data.List (find)
 import Data.Maybe (fromMaybe)
-import Control.Monad (void)
 
 type Position = (Int, Int)
 data Guardian = Up Position
@@ -44,9 +36,6 @@ type Grid = (UArray Position Char, Guardian)
 type Visited = Set Guardian
 type Move = UArray Position Char -> Position -> (Visited, Guardian)
 
-directions :: [Char]
-directions = "^v><"
-
 main :: IO ()
 main = do
   grid <- getDatas "day6.txt"
@@ -57,8 +46,11 @@ main = do
 part1 :: Visited -> Int
 part1 visited = Set.size (visitedToPositions visited)
 
+-- Here we write a kind of (Set.mapMaybe position)
 visitedToPositions :: Visited -> Set Position
-visitedToPositions = Set.mapMaybe position
+visitedToPositions visited = Set.foldr f Set.empty visited
+    where
+      f x s = maybe s (`Set.insert` s) (position x)
 
 position :: Guardian -> Maybe Position
 position (Up p)     = Just p
@@ -180,6 +172,9 @@ parseDatas s = (arr, g)
           Just g' -> g'
           Nothing -> error "Error: parseDatas can't find the guardian"
 
+directions :: [Char]
+directions = "^v><"
+
 findGuardian :: UArray Position Char -> Maybe Guardian
 findGuardian arr = uncurry guardian =<<
                    find ((`elem` directions) . snd)
@@ -205,59 +200,3 @@ guardian p c = case c of
   '>' -> Just (DRight p)
   '<' -> Just (DLeft p)
   _   -> Nothing
-
--- tools for ghci
-showGridVisited :: Grid -> Set Guardian -> [String]
-showGridVisited grid visited = foldr f [] (range (yinf, ysup))
-  where
-    gpos = visitedToPositions visited
-    (arr, g) = grid
-    ((xinf, yinf), (xsup, ysup)) = bounds arr
-    (cg, (x0, y0)) = case g of
-      Up p     -> ('^', p)
-      Down p   -> ('v', p)
-      DRight p -> ('>', p)
-      DLeft p  -> ('<', p)
-      Exit     -> ('Q', (-1, -1))
-      Loop     -> ('O', (-1, -1))
-
-    f y strs = foldr h [] (range (xinf, xsup)) : strs
-      where
-        h x str = c : str
-          where
-            c0  = arr ! (x, y)
-            c | (x, y) == (x0, y0)      = cg
-              | (x,y) `Set.member` gpos = 'X'
-              | c0 `elem` directions    = '.'
-              | otherwise               = c0
-
-printGrid :: Grid -> IO ()
-printGrid grid = printGridVisited grid Set.empty
-
-printGridVisited :: Grid -> Set Guardian -> IO ()
-printGridVisited grid visited = for_ (showGridVisited grid visited) putStrLn
-
-summary :: Int -> Int -> IO ()
-summary n steps = do
-  putStrLn ("Number of loops: "
-            <> show n
-            <> "\nNumber of steps: "
-            <> show steps
-            <> "\nHit a key")
-  void getChar
-
-demo :: String -> IO ()
-demo filename = do
-  grid0 <- getDatas filename
-  putStrLn "Initial Grid:"
-  printGrid grid0
-  summary 0 0
-  let go _ (_, Exit) _ = pure ()
-      go n grid visited = do
-        let (grid', visited') = next grid visited
-        putStrLn "New grid:"
-        printGridVisited grid' visited'
-        summary n (Set.size visited')
-        go (n+1) grid' visited'
-  go 1 grid0 Set.empty
-  putStrLn "This is the end."
