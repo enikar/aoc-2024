@@ -8,7 +8,7 @@ import Data.Char (isDigit)
 import Control.Monad (void)
 import Data.IntMap.Strict qualified as M
 import Data.IntMap.Strict (IntMap)
-import Data.List (sortBy, partition, foldl')
+import Data.List (sortBy, partition)
 import Data.IntSet qualified as S
 import Data.IntSet (IntSet)
 
@@ -71,7 +71,9 @@ number :: ReadP Int
 number = read <$> munch1 isDigit
 
 parseDatas :: String -> Datas
-parseDatas str = (fst . head) (parse readDatas str)
+parseDatas s = case parse readDatas s of
+  (x:_) -> fst x
+  []    -> error "parseDatas: it doesn't parse."
 
 readDatas :: ReadP Datas
 readDatas = do

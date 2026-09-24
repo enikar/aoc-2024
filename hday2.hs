@@ -30,7 +30,10 @@ part1 :: [Int] -> Bool
 part1 ls = all (between inf sup) diffs
   where
     diffs = computeDiffs ls
-    sign = signum (head diffs)
+    head_diffs = case diffs of
+      (x:_) -> x
+      []    -> error "Part1: diffs list is empty."
+    sign = signum head_diffs
     (inf, sup) = if sign == 1 then (1, 3) else (-3, -1)
 
 
